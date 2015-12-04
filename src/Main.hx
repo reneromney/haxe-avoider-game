@@ -14,8 +14,7 @@ import flash.Lib;
 class Main extends Sprite 
 {
 	var inited:Bool;
-	//Git control test
-	//Another commit
+	
 	//Game instantiation variables
 	public var newSimulator			: 	Simulator; 	//Starts our game simulator file
 	
