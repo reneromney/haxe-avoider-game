@@ -1,573 +1,176 @@
 #if !macro
+#if (openfl_html5 && !flambe)
 
-
-@:access(lime.app.Application)
-@:access(lime.Assets)
-@:access(openfl.display.Stage)
-
+import Main;
+import haxe.Resource;
+import flash.display.Bitmap;
+import flash.display.BitmapData;
+import flash.display.Loader;
+import flash.events.Event;
+import flash.media.Sound;
+import flash.net.URLLoader;
+import flash.net.URLRequest;
+import flash.net.URLLoaderDataFormat;
+//import flash.Assets;
+import flash.Lib;
 
 class ApplicationMain {
-	
-	
-	public static var config:lime.app.Config;
-	public static var preloader:openfl.display.Preloader;
-	
-	
-	public static function create ():Void {
-		
-		var app = new openfl.display.Application ();
-		app.create (config);
-		
-		var display = new NMEPreloader ();
-		
-		preloader = new openfl.display.Preloader (display);
-		app.setPreloader (preloader);
-		preloader.onComplete.add (init);
-		preloader.create (config);
-		
-		#if (js && html5)
-		var urls = [];
-		var types = [];
-		
-		
-		urls.push ("styles/default/circle.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/default/collapse.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/default/cross.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/default/expand.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/default/up_down.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/arrow_down.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/arrow_down_dark.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/arrow_down_disabled.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/arrow_left.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/arrow_left_disabled.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/arrow_right.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/arrow_right2.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/arrow_right_dark.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/arrow_right_disabled.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/arrow_up.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/arrow_up_disabled.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/circle_dark.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/cross_dark.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/cross_dark_disabled.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/cross_light_small.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/gradient.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/gradient/gradient.min.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/gradient/gradient_mobile.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/gradient/gradient_mobile.min.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/gradient/gripper_horizontal.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/gripper_horizontal_disabled.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/gripper_vertical.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/gripper_vertical_disabled.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/hsplitter_gripper.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/gradient/vsplitter_gripper.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/accordion.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/accordion.min.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/button.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/buttons.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/buttons.min.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/calendar.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/checkbox.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/container.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/glyphs/down_arrow.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/glyphs/hscroll_thumb_gripper_down.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/glyphs/hscroll_thumb_gripper_over.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/glyphs/hscroll_thumb_gripper_up.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/glyphs/left_arrow.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/glyphs/right_arrow.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/glyphs/up_arrow.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/glyphs/vscroll_thumb_gripper_down.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/glyphs/vscroll_thumb_gripper_over.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/glyphs/vscroll_thumb_gripper_up.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/hprogress.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/hscroll.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/listview.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/listview.min.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/listview.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/menus.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/optionbox.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/popup.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/popups.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/rtf.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/scrolls.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/scrolls.min.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/sliders.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/tab.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/tabs.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("styles/windows/textinput.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/vprogress.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/vscroll.png");
-		types.push (lime.Assets.AssetType.IMAGE);
-		
-		
-		urls.push ("styles/windows/windows.css");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("fonts/Oxygen-Bold.eot");
-		types.push (lime.Assets.AssetType.BINARY);
-		
-		
-		urls.push ("fonts/Oxygen-Bold.svg");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("Oxygen Bold");
-		types.push (lime.Assets.AssetType.FONT);
-		
-		
-		urls.push ("fonts/Oxygen-Bold.woff");
-		types.push (lime.Assets.AssetType.BINARY);
-		
-		
-		urls.push ("fonts/Oxygen-Bold.woff2");
-		types.push (lime.Assets.AssetType.BINARY);
-		
-		
-		urls.push ("fonts/Oxygen.eot");
-		types.push (lime.Assets.AssetType.BINARY);
-		
-		
-		urls.push ("fonts/Oxygen.svg");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("Oxygen Regular");
-		types.push (lime.Assets.AssetType.FONT);
-		
-		
-		urls.push ("fonts/Oxygen.woff");
-		types.push (lime.Assets.AssetType.BINARY);
-		
-		
-		urls.push ("fonts/Oxygen.woff2");
-		types.push (lime.Assets.AssetType.BINARY);
-		
-		
-		urls.push ("assets/openfl.svg");
-		types.push (lime.Assets.AssetType.TEXT);
-		
-		
-		urls.push ("Press Start 2P");
-		types.push (lime.Assets.AssetType.FONT);
-		
-		
-		
-		if (config.assetsPrefix != null) {
+
+	private static var completed:Int;
+	private static var preloader:;
+	private static var total:Int;
+
+	public static var loaders:Map <String, Loader>;
+	public static var urlLoaders:Map <String, URLLoader>;
+
+	public static function main() {
+		completed = 0;
+		loaders = new Map <String, Loader>();
+		urlLoaders = new Map <String, URLLoader>();
+		total = 0;
+		
+		//flash.Lib.setPackage("©Romney Doria 2015", "Surival", "com.Avoider", "1.2.0");
+		flash.Lib.current.loaderInfo = flash.display.LoaderInfo.create (null);
+		
+		try {
 			
-			for (i in 0...urls.length) {
+			if (Reflect.hasField (js.Browser.window, "winParameters")) {
 				
-				if (types[i] != lime.Assets.AssetType.FONT) {
-					
-					urls[i] = config.assetsPrefix + urls[i];
-					
+				Reflect.setField (flash.Lib.current.loaderInfo, "parameters", Reflect.field (js.Browser.window, "winParameters")());
+				
+			}
+			
+			flash.Lib.current.stage.loaderInfo = flash.Lib.current.loaderInfo;
+			
+		} catch (e:Dynamic) {}
+
+		
+
+		
+		preloader = new NMEPreloader();
+		
+		Lib.current.addChild(preloader);
+		preloader.onInit();
+
+		
+		
+		var urlLoader:URLLoader = new URLLoader();
+		urlLoader.dataFormat = BINARY;
+		urlLoaders.set("assets/openfl.svg", urlLoader);
+		total ++;
+		
+		
+		
+		var resourcePrefix = "NME_:bitmap_";
+		for (resourceName in Resource.listNames()) {
+			if (StringTools.startsWith (resourceName, resourcePrefix)) {
+				var type = Type.resolveClass(StringTools.replace (resourceName.substring(resourcePrefix.length), "_", "."));
+				if (type != null) {
+					total++;
+					var instance = Type.createInstance (type, [ 0, 0, true, 0x00FFFFFF, bitmapClass_onComplete ]);
 				}
-				
 			}
-			
 		}
-		
-		preloader.load (urls, types);
-		#end
-		
-		var result = app.exec ();
-		
-		#if (sys && !nodejs && !emscripten)
-		Sys.exit (result);
-		#end
-		
-	}
-	
-	
-	public static function init ():Void {
-		
-		var loaded = 0;
-		var total = 0;
-		var library_onLoad = function (__) {
-			
-			loaded++;
-			
-			if (loaded == total) {
-				
-				start ();
-				
-			}
-			
-		}
-		
-		preloader = null;
-		
-		
 		
 		if (total == 0) {
-			
-			start ();
-			
-		}
-		
-	}
-	
-	
-	public static function main () {
-		
-		config = {
-			
-			build: "2",
-			company: "©Romney Doria 2015",
-			file: "Surival",
-			fps: 60,
-			name: "Avoider",
-			orientation: "",
-			packageName: "com.Avoider",
-			version: "1.2.0",
-			windows: [
-				
-				{
-					antialiasing: 0,
-					background: 0,
-					borderless: false,
-					depthBuffer: false,
-					display: 0,
-					fullscreen: false,
-					hardware: true,
-					height: 768,
-					parameters: "{}",
-					resizable: false,
-					stencilBuffer: true,
-					title: "Avoider",
-					vsync: false,
-					width: 1024,
-					x: null,
-					y: null
-				},
-			]
-			
-		};
-		
-		#if hxtelemetry
-		var telemetry = new hxtelemetry.HxTelemetry.Config ();
-		telemetry.allocations = true;
-		telemetry.host = "localhost";
-		telemetry.app_name = config.name;
-		Reflect.setField (config, "telemetry", telemetry);
-		#end
-		
-		#if (js && html5)
-		#if (munit || utest)
-		openfl.Lib.embed (null, 1024, 768, "000000");
-		#end
-		#else
-		create ();
-		#end
-		
-	}
-	
-	
-	public static function start ():Void {
-		
-		var hasMain = false;
-		var entryPoint = Type.resolveClass ("Main");
-		
-		for (methodName in Type.getClassFields (entryPoint)) {
-			
-			if (methodName == "main") {
-				
-				hasMain = true;
-				break;
-				
-			}
-			
-		}
-		
-		lime.Assets.initialize ();
-		
-		if (hasMain) {
-			
-			Reflect.callMethod (entryPoint, Reflect.field (entryPoint, "main"), []);
-			
+			begin();
 		} else {
-			
-			var instance:DocumentClass = Type.createInstance (DocumentClass, []);
-			
-			/*if (Std.is (instance, openfl.display.DisplayObject)) {
-				
-				openfl.Lib.current.addChild (cast instance);
-				
-			}*/
-			
+			for (path in loaders.keys()) {
+				var loader:Loader = loaders.get(path);
+				loader.contentLoaderInfo.addEventListener("complete",
+          loader_onComplete);
+				loader.load (new URLRequest (path));
+			}
+
+			for (path in urlLoaders.keys()) {
+				var urlLoader:URLLoader = urlLoaders.get(path);
+				urlLoader.addEventListener("complete", loader_onComplete);
+				urlLoader.load(new URLRequest (path));
+			}
 		}
-		
-		#if !flash
-		if (openfl.Lib.current.stage.window.fullscreen) {
-			
-			openfl.Lib.current.stage.dispatchEvent (new openfl.events.FullScreenEvent (openfl.events.FullScreenEvent.FULL_SCREEN, false, false, true, true));
-			
-		}
-		
-		openfl.Lib.current.stage.dispatchEvent (new openfl.events.Event (openfl.events.Event.RESIZE, false, false));
-		#end
-		
+	}
+
+	private static function begin():Void {
+		preloader.addEventListener(Event.COMPLETE, preloader_onComplete);
+		preloader.onLoaded ();
 	}
 	
-	
-	#if neko
-	@:noCompletion @:dox(hide) public static function __init__ () {
-		
-		var loader = new neko.vm.Loader (untyped $loader);
-		loader.addPath (haxe.io.Path.directory (Sys.executablePath ()));
-		loader.addPath ("./");
-		loader.addPath ("@executable_path/");
-		
+	private static function bitmapClass_onComplete(instance:BitmapData):Void {
+		completed++;
+		var classType = Type.getClass (instance);
+		Reflect.setField (classType, "preload", instance);
+		if (completed == total) {
+			begin ();
+		}
 	}
-	#end
-	
-	
+
+	private static function loader_onComplete(event:Event):Void {
+		completed ++;
+		preloader.onUpdate (completed, total);
+		if (completed == total) {
+			begin ();
+		}
+	}
+
+	private static function preloader_onComplete(event:Event):Void {
+		preloader.removeEventListener(Event.COMPLETE, preloader_onComplete);
+		Lib.current.removeChild(preloader);
+		preloader = null;
+		if (Reflect.field(Main, "main") == null)
+		{
+			var mainDisplayObj = Type.createInstance(DocumentClass, []);
+			if (Std.is(mainDisplayObj, flash.display.DisplayObject))
+				flash.Lib.current.addChild(cast mainDisplayObj);
+		}
+		else
+		{
+			Reflect.callMethod(Main, Reflect.field (Main, "main"), []);
+		}
+	}
 }
 
-
 @:build(DocumentClass.build())
-@:keep class DocumentClass extends Main {}
-
+class DocumentClass extends Main {}
 
 #else
 
+import Main;
+
+class ApplicationMain {
+
+	public static function main() {
+		if (Reflect.field(Main, "main") == null) {
+			Type.createInstance(Main, []);
+		} else {
+			Reflect.callMethod(Main, Reflect.field(Main, "main"), []);
+		}
+	}
+}
+
+#end
+#else
 
 import haxe.macro.Context;
 import haxe.macro.Expr;
 
-
 class DocumentClass {
 	
-	
 	macro public static function build ():Array<Field> {
-		
-		var classType = Context.getLocalClass ().get ();
+		var classType = Context.getLocalClass().get();
 		var searchTypes = classType;
-		
 		while (searchTypes.superClass != null) {
-			
 			if (searchTypes.pack.length == 2 && searchTypes.pack[1] == "display" && searchTypes.name == "DisplayObject") {
-				
-				var fields = Context.getBuildFields ();
-				
+				var fields = Context.getBuildFields();
 				var method = macro {
-					
-					openfl.Lib.current.addChild (this);
-					super ();
-					dispatchEvent (new openfl.events.Event (openfl.events.Event.ADDED_TO_STAGE, false, false));
-					
+					return flash.Lib.current.stage;
 				}
-				
-				fields.push ({ name: "new", access: [ APublic ], kind: FFun({ args: [], expr: method, params: [], ret: macro :Void }), pos: Context.currentPos () });
-				
+				fields.push ({ name: "get_stage", access: [ APrivate, AOverride ], kind: FFun({ args: [], expr: method, params: [], ret: macro :flash.display.Stage }), pos: Context.currentPos() });
 				return fields;
-				
 			}
-			
-			searchTypes = searchTypes.superClass.t.get ();
-			
+			searchTypes = searchTypes.superClass.t.get();
 		}
-		
 		return null;
-		
 	}
 	
-	
 }
-
-
 #end

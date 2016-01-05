@@ -203,7 +203,7 @@ ApplicationMain.init = function() {
 	if(total == 0) ApplicationMain.start();
 };
 ApplicationMain.main = function() {
-	ApplicationMain.config = { build : "2", company : "©Romney Doria 2015", file : "Surival", fps : 60, name : "Avoider", orientation : "", packageName : "com.Avoider", version : "1.2.0", windows : [{ antialiasing : 0, background : 0, borderless : false, depthBuffer : false, display : 0, fullscreen : false, hardware : true, height : 768, parameters : "{}", resizable : false, stencilBuffer : true, title : "Avoider", vsync : false, width : 1024, x : null, y : null}]};
+	ApplicationMain.config = { build : "6", company : "©Romney Doria 2015", file : "Surival", fps : 60, name : "Avoider", orientation : "", packageName : "com.Avoider", version : "1.2.0", windows : [{ antialiasing : 0, background : 0, borderless : false, depthBuffer : false, display : 0, fullscreen : false, hardware : false, height : 768, parameters : "{}", resizable : false, stencilBuffer : true, title : "Avoider", vsync : false, width : 1024, x : null, y : null}]};
 };
 ApplicationMain.start = function() {
 	var hasMain = false;
@@ -281,8 +281,8 @@ openfl_events_EventDispatcher.prototype = {
 		if(this.__eventMap == null) return false;
 		if(this.__dispatching.get(type) == true && this.__newEventMap.exists(type)) return this.__newEventMap.get(type).length > 0; else return this.__eventMap.exists(type);
 	}
-	,removeEventListener: function(type,listener,capture) {
-		if(capture == null) capture = false;
+	,removeEventListener: function(type,listener,useCapture) {
+		if(useCapture == null) useCapture = false;
 		if(this.__eventMap == null) return;
 		var list = this.__eventMap.get(type);
 		if(list == null) return;
@@ -298,7 +298,7 @@ openfl_events_EventDispatcher.prototype = {
 		var _g = list.length;
 		while(_g1 < _g) {
 			var i = _g1++;
-			if(list[i].match(listener,capture)) {
+			if(list[i].match(listener,useCapture)) {
 				list.splice(i,1);
 				break;
 			}
@@ -454,14 +454,6 @@ openfl_display_DisplayObject.prototype = $extend(openfl_events_EventDispatcher.p
 	,__getBounds: function(rect,matrix) {
 		if(this.__graphics != null) this.__graphics.__getBounds(rect,matrix);
 	}
-	,__getRenderBounds: function(rect,matrix) {
-		if(this.__scrollRect == null) this.__getBounds(rect,matrix); else {
-			var r = openfl_geom_Rectangle.__temp;
-			r.copyFrom(this.__scrollRect);
-			r.__transform(r,matrix);
-			rect.__expand(matrix.tx,matrix.ty,r.width,r.height);
-		}
-	}
 	,__getCursor: function() {
 		return null;
 	}
@@ -470,6 +462,14 @@ openfl_display_DisplayObject.prototype = $extend(openfl_events_EventDispatcher.p
 	}
 	,__getLocalBounds: function(rect) {
 		this.__getBounds(rect,this.__transform);
+	}
+	,__getRenderBounds: function(rect,matrix) {
+		if(this.__scrollRect == null) this.__getBounds(rect,matrix); else {
+			var r = openfl_geom_Rectangle.__temp;
+			r.copyFrom(this.__scrollRect);
+			r.__transform(r,matrix);
+			rect.__expand(matrix.tx,matrix.ty,r.width,r.height);
+		}
 	}
 	,__getWorldTransform: function() {
 		if(this.__transformDirty || openfl_display_DisplayObject.__worldTransformDirty > 0) {
@@ -490,12 +490,12 @@ openfl_display_DisplayObject.prototype = $extend(openfl_events_EventDispatcher.p
 		}
 		return this.__worldTransform;
 	}
-	,__hitTest: function(x,y,shapeFlag,stack,interactiveOnly) {
+	,__hitTest: function(x,y,shapeFlag,stack,interactiveOnly,hitObject) {
 		if(this.__graphics != null) {
-			if(!this.get_visible() || this.__isMask) return false;
+			if(!hitObject.get_visible() || this.__isMask) return false;
 			if(this.get_mask() != null && !this.get_mask().__hitTestMask(x,y)) return false;
 			if(this.__graphics.__hitTest(x,y,shapeFlag,this.__getWorldTransform())) {
-				if(stack != null && !interactiveOnly) stack.push(this);
+				if(stack != null && !interactiveOnly) stack.push(hitObject);
 				return true;
 			}
 		}
@@ -621,31 +621,6 @@ openfl_display_DisplayObject.prototype = $extend(openfl_events_EventDispatcher.p
 			openfl_display_DisplayObject.__worldTransformDirty++;
 		}
 	}
-	,__updateTransforms: function(overrideTransfrom) {
-		var overrided = overrideTransfrom != null;
-		var local;
-		if(overrided) local = new openfl_geom_Matrix(overrideTransfrom.a,overrideTransfrom.b,overrideTransfrom.c,overrideTransfrom.d,overrideTransfrom.tx,overrideTransfrom.ty); else local = this.__transform;
-		if(this.__worldTransform == null) this.__worldTransform = new openfl_geom_Matrix();
-		if(!overrided && this.parent != null) {
-			var parentTransform = this.parent.__worldTransform;
-			this.__worldTransform.a = local.a * parentTransform.a + local.b * parentTransform.c;
-			this.__worldTransform.b = local.a * parentTransform.b + local.b * parentTransform.d;
-			this.__worldTransform.c = local.c * parentTransform.a + local.d * parentTransform.c;
-			this.__worldTransform.d = local.c * parentTransform.b + local.d * parentTransform.d;
-			this.__worldTransform.tx = local.tx * parentTransform.a + local.ty * parentTransform.c + parentTransform.tx;
-			this.__worldTransform.ty = local.tx * parentTransform.b + local.ty * parentTransform.d + parentTransform.ty;
-			this.__worldOffset.copyFrom(this.parent.__worldOffset);
-		} else {
-			this.__worldTransform.copyFrom(local);
-			this.__worldOffset.setTo(0,0);
-		}
-		if(this.__scrollRect != null) {
-			this.__offset = this.__worldTransform.deltaTransformPoint(this.__scrollRect.get_topLeft());
-			this.__worldOffset.offset(this.__offset.x,this.__offset.y);
-		} else this.__offset.setTo(0,0);
-		this.__renderTransform.copyFrom(this.__worldTransform);
-		this.__renderTransform.translate(-this.__worldOffset.x,-this.__worldOffset.y);
-	}
 	,__update: function(transformOnly,updateChildren,maskGraphics) {
 		this.__renderable = this.get_visible() && this.get_scaleX() != 0 && this.get_scaleY() != 0 && !this.__isMask;
 		this.__updateTransforms();
@@ -706,6 +681,31 @@ openfl_display_DisplayObject.prototype = $extend(openfl_events_EventDispatcher.p
 			if(maskGraphics.__bounds == null) maskGraphics.__bounds = new openfl_geom_Rectangle();
 			this.__graphics.__getBounds(maskGraphics.__bounds,openfl_geom_Matrix.__identity);
 		}
+	}
+	,__updateTransforms: function(overrideTransform) {
+		var overrided = overrideTransform != null;
+		var local;
+		if(overrided) local = new openfl_geom_Matrix(overrideTransform.a,overrideTransform.b,overrideTransform.c,overrideTransform.d,overrideTransform.tx,overrideTransform.ty); else local = this.__transform;
+		if(this.__worldTransform == null) this.__worldTransform = new openfl_geom_Matrix();
+		if(!overrided && this.parent != null) {
+			var parentTransform = this.parent.__worldTransform;
+			this.__worldTransform.a = local.a * parentTransform.a + local.b * parentTransform.c;
+			this.__worldTransform.b = local.a * parentTransform.b + local.b * parentTransform.d;
+			this.__worldTransform.c = local.c * parentTransform.a + local.d * parentTransform.c;
+			this.__worldTransform.d = local.c * parentTransform.b + local.d * parentTransform.d;
+			this.__worldTransform.tx = local.tx * parentTransform.a + local.ty * parentTransform.c + parentTransform.tx;
+			this.__worldTransform.ty = local.tx * parentTransform.b + local.ty * parentTransform.d + parentTransform.ty;
+			this.__worldOffset.copyFrom(this.parent.__worldOffset);
+		} else {
+			this.__worldTransform.copyFrom(local);
+			this.__worldOffset.setTo(0,0);
+		}
+		if(this.__scrollRect != null) {
+			this.__offset = this.__worldTransform.deltaTransformPoint(this.__scrollRect.get_topLeft());
+			this.__worldOffset.offset(this.__offset.x,this.__offset.y);
+		} else this.__offset.setTo(0,0);
+		this.__renderTransform.copyFrom(this.__worldTransform);
+		this.__renderTransform.translate(-this.__worldOffset.x,-this.__worldOffset.y);
 	}
 	,get_alpha: function() {
 		return this.__alpha;
@@ -1025,9 +1025,9 @@ openfl_display_InteractiveObject.prototype = $extend(openfl_display_DisplayObjec
 		}
 		return true;
 	}
-	,__hitTest: function(x,y,shapeFlag,stack,interactiveOnly) {
-		if(!this.get_visible() || this.__isMask || interactiveOnly && !this.mouseEnabled) return false;
-		return openfl_display_DisplayObject.prototype.__hitTest.call(this,x,y,shapeFlag,stack,interactiveOnly);
+	,__hitTest: function(x,y,shapeFlag,stack,interactiveOnly,hitObject) {
+		if(!hitObject.get_visible() || this.__isMask || interactiveOnly && !this.mouseEnabled) return false;
+		return openfl_display_DisplayObject.prototype.__hitTest.call(this,x,y,shapeFlag,stack,interactiveOnly,hitObject);
 	}
 	,get_tabEnabled: function() {
 		return this.__tabEnabled;
@@ -1137,7 +1137,7 @@ openfl_display_DisplayObjectContainer.prototype = $extend(openfl_display_Interac
 	}
 	,getObjectsUnderPoint: function(point) {
 		var stack = [];
-		this.__hitTest(point.x,point.y,false,stack,false);
+		this.__hitTest(point.x,point.y,false,stack,false,this);
 		stack.reverse();
 		return stack;
 	}
@@ -1210,10 +1210,10 @@ openfl_display_DisplayObjectContainer.prototype = $extend(openfl_display_Interac
 			this.__children[index2] = child1;
 		}
 	}
-	,swapChildrenAt: function(child1,child2) {
-		var swap = this.__children[child1];
-		this.__children[child1] = this.__children[child2];
-		this.__children[child2] = swap;
+	,swapChildrenAt: function(index1,index2) {
+		var swap = this.__children[index1];
+		this.__children[index1] = this.__children[index2];
+		this.__children[index2] = swap;
 		swap = null;
 	}
 	,__broadcast: function(event,notifyChilden) {
@@ -1252,7 +1252,7 @@ openfl_display_DisplayObjectContainer.prototype = $extend(openfl_display_Interac
 		while(_g < _g1.length) {
 			var child = _g1[_g];
 			++_g;
-			if(child.get_scaleX() == 0 || child.get_scaleY() == 0 || child.__isMask) continue;
+			if(child.get_scaleX() == 0 || child.get_scaleY() == 0) continue;
 			child.__getBounds(rect,child.__worldTransform);
 		}
 		if(matrix != null) {
@@ -1283,15 +1283,15 @@ openfl_display_DisplayObjectContainer.prototype = $extend(openfl_display_Interac
 			this.__updateChildren(true);
 		}
 	}
-	,__hitTest: function(x,y,shapeFlag,stack,interactiveOnly) {
-		if(!this.get_visible() || this.__isMask || interactiveOnly && !this.mouseEnabled && !this.mouseChildren) return false;
+	,__hitTest: function(x,y,shapeFlag,stack,interactiveOnly,hitObject) {
+		if(!hitObject.get_visible() || this.__isMask || interactiveOnly && !this.mouseEnabled && !this.mouseChildren) return false;
 		if(this.get_mask() != null && !this.get_mask().__hitTestMask(x,y)) return false;
 		if(this.get_scrollRect() != null && !this.get_scrollRect().containsPoint(this.globalToLocal(new openfl_geom_Point(x,y)))) return false;
 		var i = this.__children.length;
 		if(interactiveOnly) {
 			if(stack == null || !this.mouseChildren) {
-				while(--i >= 0) if(this.__children[i].__hitTest(x,y,shapeFlag,null,true)) {
-					if(stack != null) stack.push(this);
+				while(--i >= 0) if(this.__children[i].__hitTest(x,y,shapeFlag,null,true,this.__children[i])) {
+					if(stack != null) stack.push(hitObject);
 					return true;
 				}
 			} else if(stack != null) {
@@ -1301,18 +1301,18 @@ openfl_display_DisplayObjectContainer.prototype = $extend(openfl_display_Interac
 				while(--i >= 0) {
 					interactive = this.__children[i].__getInteractive(null);
 					if(interactive || this.mouseEnabled && !hitTest) {
-						if(this.__children[i].__hitTest(x,y,shapeFlag,stack,true)) {
+						if(this.__children[i].__hitTest(x,y,shapeFlag,stack,true,this.__children[i])) {
 							hitTest = true;
 							if(interactive) break;
 						}
 					}
 				}
 				if(hitTest) {
-					stack.splice(length,0,this);
+					stack.splice(length,0,hitObject);
 					return true;
 				}
 			}
-		} else while(--i >= 0) this.__children[i].__hitTest(x,y,shapeFlag,stack,false);
+		} else while(--i >= 0) this.__children[i].__hitTest(x,y,shapeFlag,stack,false,this.__children[i]);
 		return false;
 	}
 	,__hitTestMask: function(x,y) {
@@ -1478,12 +1478,19 @@ openfl_display_Sprite.prototype = $extend(openfl_display_DisplayObjectContainer.
 	,__getCursor: function() {
 		if(this.buttonMode && this.useHandCursor) return lime_ui_MouseCursor.POINTER; else return null;
 	}
-	,__hitTest: function(x,y,shapeFlag,stack,interactiveOnly) {
-		if(!this.get_visible() || this.__isMask || interactiveOnly && !this.mouseEnabled && !this.mouseChildren) return false;
-		if(this.get_mask() != null && !this.get_mask().__hitTestMask(x,y)) return false;
-		if(openfl_display_DisplayObjectContainer.prototype.__hitTest.call(this,x,y,shapeFlag,stack,interactiveOnly)) return interactiveOnly; else if((!interactiveOnly || this.mouseEnabled) && this.__graphics != null && this.__graphics.__hitTest(x,y,shapeFlag,this.__getWorldTransform())) {
-			if(stack != null) stack.push(this);
-			return true;
+	,__hitTest: function(x,y,shapeFlag,stack,interactiveOnly,hitObject) {
+		if(this.hitArea != null) {
+			if(!this.hitArea.mouseEnabled && this.hitArea.__hitTest(x,y,shapeFlag,stack,interactiveOnly,hitObject)) {
+				stack[stack.length - 1] = hitObject;
+				return true;
+			}
+		} else {
+			if(!hitObject.get_visible() || this.__isMask || interactiveOnly && !this.mouseEnabled && !this.mouseChildren) return false;
+			if(this.get_mask() != null && !this.get_mask().__hitTestMask(x,y)) return false;
+			if(openfl_display_DisplayObjectContainer.prototype.__hitTest.call(this,x,y,shapeFlag,stack,interactiveOnly,hitObject)) return interactiveOnly; else if((!interactiveOnly || this.mouseEnabled) && this.__graphics != null && this.__graphics.__hitTest(x,y,shapeFlag,this.__getWorldTransform())) {
+				if(stack != null) stack.push(hitObject);
+				return true;
+			}
 		}
 		return false;
 	}
@@ -1570,7 +1577,7 @@ lime_AssetLibrary.prototype = {
 	}
 	,getText: function(id) {
 		var bytes = this.getBytes(id);
-		if(bytes == null) return null; else return bytes.readUTFBytes(bytes.length);
+		if(bytes == null) return null; else return bytes.getString(0,bytes.length);
 	}
 	,isLocal: function(id,type) {
 		return true;
@@ -1611,7 +1618,7 @@ lime_AssetLibrary.prototype = {
 	,loadText: function(id) {
 		return this.loadBytes(id).then(function(bytes) {
 			return new lime_app_Future(function() {
-				if(bytes == null) return null; else return bytes.readUTFBytes(bytes.length);
+				if(bytes == null) return null; else return bytes.getString(0,bytes.length);
 			});
 		});
 	}
@@ -1894,20 +1901,12 @@ DefaultAssetLibrary.prototype = $extend(lime_AssetLibrary.prototype,{
 		return null;
 	}
 	,getBytes: function(id) {
-		var bytes = null;
 		var loader;
 		var key = this.path.get(id);
 		loader = lime_app_Preloader.loaders.get(key);
 		if(loader == null) return null;
-		var data = loader.data;
-		if(typeof(data) == "string") {
-			bytes = new lime_utils_ByteArray();
-			bytes.writeUTFBytes(data);
-		} else if(js_Boot.__instanceof(data,lime_utils_ByteArray)) bytes = data; else bytes = null;
-		if(bytes != null) {
-			bytes.position = 0;
-			return bytes;
-		} else return null;
+		var bytes = loader.bytes;
+		if(bytes != null) return bytes; else return null;
 	}
 	,getFont: function(id) {
 		return js_Boot.__cast(Type.createInstance(this.className.get(id),[]) , lime_text_Font);
@@ -1924,17 +1923,12 @@ DefaultAssetLibrary.prototype = $extend(lime_AssetLibrary.prototype,{
 		return this.path.get(id);
 	}
 	,getText: function(id) {
-		var bytes = null;
 		var loader;
 		var key = this.path.get(id);
 		loader = lime_app_Preloader.loaders.get(key);
 		if(loader == null) return null;
-		var data = loader.data;
-		if(typeof(data) == "string") return data; else if(js_Boot.__instanceof(data,lime_utils_ByteArray)) bytes = data; else bytes = null;
-		if(bytes != null) {
-			bytes.position = 0;
-			return bytes.readUTFBytes(bytes.length);
-		} else return null;
+		var bytes = loader.bytes;
+		if(bytes != null) return bytes.getString(0,bytes.length); else return null;
 	}
 	,isLocal: function(id,type) {
 		var requestedType;
@@ -1963,18 +1957,8 @@ DefaultAssetLibrary.prototype = $extend(lime_AssetLibrary.prototype,{
 	,loadBytes: function(id) {
 		var promise = new lime_app_Promise();
 		if(this.path.exists(id)) {
-			var loader = new lime_net_URLLoader();
-			loader.set_dataFormat(lime_net_URLLoaderDataFormat.BINARY);
-			loader.onComplete.add(function(_) {
-				promise.complete(loader.data);
-			});
-			loader.onProgress.add(function(_1,loaded,total) {
-				if(total == 0) promise.progress(0); else promise.progress(loaded / total);
-			});
-			loader.onIOError.add(function(_2,e) {
-				promise.error(e);
-			});
-			loader.load(new lime_net_URLRequest(this.path.get(id)));
+			var request = new lime_net_HTTPRequest();
+			promise.completeWith(request.load(this.path.get(id) + "?" + lime_Assets.cache.version));
 		} else promise.complete(this.getBytes(id));
 		return promise.future;
 	}
@@ -1986,24 +1970,24 @@ DefaultAssetLibrary.prototype = $extend(lime_AssetLibrary.prototype,{
 				promise.complete(lime_graphics_Image.fromImageElement(image));
 			};
 			image.onerror = $bind(promise,promise.error);
-			image.src = this.path.get(id);
+			image.src = this.path.get(id) + "?" + lime_Assets.cache.version;
 		} else promise.complete(this.getImage(id));
 		return promise.future;
 	}
 	,loadText: function(id) {
 		var promise = new lime_app_Promise();
 		if(this.path.exists(id)) {
-			var loader = new lime_net_URLLoader();
-			loader.onComplete.add(function(_) {
-				promise.complete(loader.data);
+			var request = new lime_net_HTTPRequest();
+			var future = request.load(this.path.get(id) + "?" + lime_Assets.cache.version);
+			future.onProgress(function(progress) {
+				promise.progress(progress);
 			});
-			loader.onProgress.add(function(_1,loaded,total) {
-				if(total == 0) promise.progress(0); else promise.progress(loaded / total);
-			});
-			loader.onIOError.add(function(_2,msg) {
+			future.onError(function(msg) {
 				promise.error(msg);
 			});
-			loader.load(new lime_net_URLRequest(this.path.get(id)));
+			future.onComplete(function(bytes) {
+				promise.complete(bytes.getString(0,bytes.length));
+			});
 		} else promise.complete(this.getText(id));
 		return promise.future;
 	}
@@ -2116,7 +2100,7 @@ openfl_text_Font.enumerateFonts = function(enumerateDeviceFonts) {
 };
 openfl_text_Font.fromBytes = function(bytes) {
 	var font = new openfl_text_Font();
-	font.__fromBytes(bytes);
+	font.__fromBytes(openfl_utils__$ByteArray_ByteArray_$Impl_$.toBytes(bytes));
 	return font;
 };
 openfl_text_Font.fromFile = function(path) {
@@ -2571,26 +2555,6 @@ HxOverrides.iter = function(a) {
 		return this.arr[this.cur++];
 	}};
 };
-var Lambda = function() { };
-$hxClasses["Lambda"] = Lambda;
-Lambda.__name__ = ["Lambda"];
-Lambda.count = function(it,pred) {
-	var n = 0;
-	if(pred == null) {
-		var $it0 = $iterator(it)();
-		while( $it0.hasNext() ) {
-			var _ = $it0.next();
-			n++;
-		}
-	} else {
-		var $it1 = $iterator(it)();
-		while( $it1.hasNext() ) {
-			var x = $it1.next();
-			if(pred(x)) n++;
-		}
-	}
-	return n;
-};
 var List = function() {
 	this.length = 0;
 };
@@ -2851,6 +2815,9 @@ Simulator.prototype = $extend(openfl_display_Sprite.prototype,{
 var Std = function() { };
 $hxClasses["Std"] = Std;
 Std.__name__ = ["Std"];
+Std["is"] = function(v,t) {
+	return js_Boot.__instanceof(v,t);
+};
 Std.string = function(s) {
 	return js_Boot.__string_rec(s,"");
 };
@@ -2939,6 +2906,9 @@ TouchControls.prototype = $extend(openfl_display_Sprite.prototype,{
 var Type = function() { };
 $hxClasses["Type"] = Type;
 Type.__name__ = ["Type"];
+Type.getSuperClass = function(c) {
+	return c.__super__;
+};
 Type.getClassName = function(c) {
 	var a = c.__name__;
 	if(a == null) return null;
@@ -3604,21 +3574,6 @@ haxe_ds_ObjectMap.prototype = {
 		delete(this.h.__keys__[id]);
 		return true;
 	}
-	,keys: function() {
-		var a = [];
-		for( var key in this.h.__keys__ ) {
-		if(this.h.hasOwnProperty(key)) a.push(this.h.__keys__[key]);
-		}
-		return HxOverrides.iter(a);
-	}
-	,iterator: function() {
-		return { ref : this.h, it : this.keys(), hasNext : function() {
-			return this.it.hasNext();
-		}, next : function() {
-			var i = this.it.next();
-			return this.ref[i.__id__];
-		}};
-	}
 	,__class__: haxe_ds_ObjectMap
 };
 var haxe_ds__$StringMap_StringMapIterator = function(map,keys) {
@@ -3765,6 +3720,34 @@ haxe_io_Bytes.prototype = {
 	}
 	,set: function(pos,v) {
 		this.b[pos] = v & 255;
+	}
+	,blit: function(pos,src,srcpos,len) {
+		if(pos < 0 || srcpos < 0 || len < 0 || pos + len > this.length || srcpos + len > src.length) throw new js__$Boot_HaxeError(haxe_io_Error.OutsideBounds);
+		if(srcpos == 0 && len == src.length) this.b.set(src.b,pos); else this.b.set(src.b.subarray(srcpos,srcpos + len),pos);
+	}
+	,getDouble: function(pos) {
+		if(this.data == null) this.data = new DataView(this.b.buffer,this.b.byteOffset,this.b.byteLength);
+		return this.data.getFloat64(pos,true);
+	}
+	,getFloat: function(pos) {
+		if(this.data == null) this.data = new DataView(this.b.buffer,this.b.byteOffset,this.b.byteLength);
+		return this.data.getFloat32(pos,true);
+	}
+	,setDouble: function(pos,v) {
+		if(this.data == null) this.data = new DataView(this.b.buffer,this.b.byteOffset,this.b.byteLength);
+		this.data.setFloat64(pos,v,true);
+	}
+	,setFloat: function(pos,v) {
+		if(this.data == null) this.data = new DataView(this.b.buffer,this.b.byteOffset,this.b.byteLength);
+		this.data.setFloat32(pos,v,true);
+	}
+	,setUInt16: function(pos,v) {
+		if(this.data == null) this.data = new DataView(this.b.buffer,this.b.byteOffset,this.b.byteLength);
+		this.data.setUint16(pos,v,true);
+	}
+	,setInt32: function(pos,v) {
+		if(this.data == null) this.data = new DataView(this.b.buffer,this.b.byteOffset,this.b.byteLength);
+		this.data.setInt32(pos,v,true);
 	}
 	,getString: function(pos,len) {
 		if(pos < 0 || len < 0 || pos + len > this.length) throw new js__$Boot_HaxeError(haxe_io_Error.OutsideBounds);
@@ -4277,6 +4260,7 @@ var lime_AssetCache = function() {
 	this.audio = new haxe_ds_StringMap();
 	this.font = new haxe_ds_StringMap();
 	this.image = new haxe_ds_StringMap();
+	this.version = Std["int"](Math.random() * 1000000);
 };
 $hxClasses["lime.AssetCache"] = lime_AssetCache;
 lime_AssetCache.__name__ = ["lime","AssetCache"];
@@ -4407,8 +4391,8 @@ lime_Assets.getBytes = function(id) {
 	var library = lime_Assets.getLibrary(libraryName);
 	if(library != null) {
 		if(library.exists(symbolName,"BINARY")) {
-			if(library.isLocal(symbolName,"BINARY")) return library.getBytes(symbolName); else haxe_Log.trace("[Assets] String or ByteArray asset \"" + id + "\" exists, but only asynchronously",{ fileName : "Assets.hx", lineNumber : 171, className : "lime.Assets", methodName : "getBytes"});
-		} else haxe_Log.trace("[Assets] There is no String or ByteArray asset with an ID of \"" + id + "\"",{ fileName : "Assets.hx", lineNumber : 177, className : "lime.Assets", methodName : "getBytes"});
+			if(library.isLocal(symbolName,"BINARY")) return library.getBytes(symbolName); else haxe_Log.trace("[Assets] String or Bytes asset \"" + id + "\" exists, but only asynchronously",{ fileName : "Assets.hx", lineNumber : 171, className : "lime.Assets", methodName : "getBytes"});
+		} else haxe_Log.trace("[Assets] There is no String or Bytes asset with an ID of \"" + id + "\"",{ fileName : "Assets.hx", lineNumber : 177, className : "lime.Assets", methodName : "getBytes"});
 	} else haxe_Log.trace("[Assets] There is no asset library named \"" + libraryName + "\"",{ fileName : "Assets.hx", lineNumber : 183, className : "lime.Assets", methodName : "getBytes"});
 	return null;
 };
@@ -4566,7 +4550,7 @@ lime_Assets.loadBytes = function(id) {
 	symbolName = HxOverrides.substr(id,pos,null);
 	var library = lime_Assets.getLibrary(libraryName);
 	if(library != null) {
-		if(library.exists(symbolName,"BINARY")) promise.completeWith(library.loadBytes(symbolName)); else promise.error("[Assets] There is no String or ByteArray asset with an ID of \"" + id + "\"");
+		if(library.exists(symbolName,"BINARY")) promise.completeWith(library.loadBytes(symbolName)); else promise.error("[Assets] There is no String or Bytes asset with an ID of \"" + id + "\"");
 	} else promise.error("[Assets] There is no asset library named \"" + libraryName + "\"");
 	return promise.future;
 };
@@ -4658,6 +4642,7 @@ lime_Assets.library_onChange = function() {
 	lime_Assets.onChange.dispatch();
 };
 var lime__$backend_html5_HTML5Application = function(parent) {
+	this.gameDeviceCache = new haxe_ds_IntMap();
 	this.parent = parent;
 	this.currentUpdate = 0;
 	this.lastUpdate = 0;
@@ -4800,6 +4785,7 @@ lime__$backend_html5_HTML5Application.prototype = {
 		if(this.framePeriod < 0) return 60; else if(this.framePeriod == 1000) return 0; else return 1000 / this.framePeriod;
 	}
 	,handleApplicationEvent: function(__) {
+		this.updateGameDevices();
 		this.currentUpdate = new Date().getTime();
 		if(this.currentUpdate >= this.nextUpdate) {
 			this.deltaTime = this.currentUpdate - this.lastUpdate;
@@ -4852,7 +4838,148 @@ lime__$backend_html5_HTML5Application.prototype = {
 		if(value >= 60) this.framePeriod = -1; else if(value > 0) this.framePeriod = 1000 / value; else this.framePeriod = 1000;
 		return value;
 	}
+	,updateGameDevices: function() {
+		var devices = lime_ui_Joystick.__getDeviceData();
+		if(devices == null) return;
+		var id;
+		var gamepad;
+		var joystick;
+		var data;
+		var cache;
+		var _g1 = 0;
+		var _g = devices.length;
+		while(_g1 < _g) {
+			var i = _g1++;
+			id = i;
+			data = devices[id];
+			if(data == null) continue;
+			if(!this.gameDeviceCache.h.hasOwnProperty(id)) {
+				cache = new lime__$backend_html5_GameDeviceData();
+				cache.id = id;
+				cache.connected = data.connected;
+				var _g3 = 0;
+				var _g2 = data.buttons.length;
+				while(_g3 < _g2) {
+					var i1 = _g3++;
+					cache.buttons.push(data.buttons[i1].value);
+				}
+				var _g31 = 0;
+				var _g21 = data.axes.length;
+				while(_g31 < _g21) {
+					var i2 = _g31++;
+					cache.axes.push(data.axes[i2]);
+				}
+				if(data.mapping == "standard") cache.isGamepad = true;
+				this.gameDeviceCache.h[id] = cache;
+				if(data.connected) {
+					lime_ui_Joystick.__connect(id);
+					if(cache.isGamepad) lime_ui_Gamepad.__connect(id);
+				}
+			}
+			cache = this.gameDeviceCache.h[id];
+			joystick = lime_ui_Joystick.devices.h[id];
+			gamepad = lime_ui_Gamepad.devices.h[id];
+			if(data.connected) {
+				var button;
+				var value;
+				var _g32 = 0;
+				var _g22 = data.buttons.length;
+				while(_g32 < _g22) {
+					var i3 = _g32++;
+					value = data.buttons[i3].value;
+					if(value != cache.buttons[i3]) {
+						if(i3 == 6) {
+							joystick.onAxisMove.dispatch(data.axes.length,value);
+							if(gamepad != null) gamepad.onAxisMove.dispatch(4,value);
+						} else if(i3 == 7) {
+							joystick.onAxisMove.dispatch(data.axes.length + 1,value);
+							if(gamepad != null) gamepad.onAxisMove.dispatch(5,value);
+						} else {
+							if(value > 0) joystick.onButtonDown.dispatch(i3); else joystick.onButtonUp.dispatch(i3);
+							if(gamepad != null) {
+								switch(i3) {
+								case 0:
+									button = 0;
+									break;
+								case 1:
+									button = 1;
+									break;
+								case 2:
+									button = 2;
+									break;
+								case 3:
+									button = 3;
+									break;
+								case 4:
+									button = 9;
+									break;
+								case 5:
+									button = 10;
+									break;
+								case 8:
+									button = 4;
+									break;
+								case 9:
+									button = 6;
+									break;
+								case 10:
+									button = 7;
+									break;
+								case 11:
+									button = 8;
+									break;
+								case 12:
+									button = 11;
+									break;
+								case 13:
+									button = 12;
+									break;
+								case 14:
+									button = 13;
+									break;
+								case 15:
+									button = 14;
+									break;
+								case 16:
+									button = 5;
+									break;
+								default:
+									continue;
+								}
+								if(value > 0) gamepad.onButtonDown.dispatch(button); else gamepad.onButtonUp.dispatch(button);
+							}
+						}
+						cache.buttons[i3] = value;
+					}
+				}
+				var _g33 = 0;
+				var _g23 = data.axes.length;
+				while(_g33 < _g23) {
+					var i4 = _g33++;
+					if(data.axes[i4] != cache.axes[i4]) {
+						joystick.onAxisMove.dispatch(i4,data.axes[i4]);
+						if(gamepad != null) gamepad.onAxisMove.dispatch(i4,data.axes[i4]);
+						cache.axes[i4] = data.axes[i4];
+					}
+				}
+			} else if(cache.connected) {
+				cache.connected = false;
+				lime_ui_Joystick.__disconnect(id);
+				lime_ui_Gamepad.__disconnect(id);
+			}
+		}
+	}
 	,__class__: lime__$backend_html5_HTML5Application
+};
+var lime__$backend_html5_GameDeviceData = function() {
+	this.connected = true;
+	this.buttons = [];
+	this.axes = [];
+};
+$hxClasses["lime._backend.html5.GameDeviceData"] = lime__$backend_html5_GameDeviceData;
+lime__$backend_html5_GameDeviceData.__name__ = ["lime","_backend","html5","GameDeviceData"];
+lime__$backend_html5_GameDeviceData.prototype = {
+	__class__: lime__$backend_html5_GameDeviceData
 };
 var lime__$backend_html5_HTML5Mouse = function() { };
 $hxClasses["lime._backend.html5.HTML5Mouse"] = lime__$backend_html5_HTML5Mouse;
@@ -5073,6 +5200,8 @@ lime__$backend_html5_HTML5Window.prototype = {
 			this.element.addEventListener("touchstart",$bind(this,this.handleTouchEvent),true);
 			this.element.addEventListener("touchmove",$bind(this,this.handleTouchEvent),true);
 			this.element.addEventListener("touchend",$bind(this,this.handleTouchEvent),true);
+			this.element.addEventListener("gamepadconnected",$bind(this,this.handleGamepadEvent),true);
+			this.element.addEventListener("gamepaddisconnected",$bind(this,this.handleGamepadEvent),true);
 		}
 	}
 	,focus: function() {
@@ -5087,6 +5216,20 @@ lime__$backend_html5_HTML5Window.prototype = {
 		if(this.enableTextEvents) haxe_Timer.delay(function() {
 			lime__$backend_html5_HTML5Window.textInput.focus();
 		},20);
+	}
+	,handleGamepadEvent: function(event) {
+		var _g = event.type;
+		switch(_g) {
+		case "gamepadconnected":
+			lime_ui_Joystick.__connect(event.gamepad.index);
+			if(event.gamepad.mapping == "standard") lime_ui_Gamepad.__connect(event.gamepad.index);
+			break;
+		case "gamepaddisconnected":
+			lime_ui_Joystick.__disconnect(event.gamepad.index);
+			lime_ui_Gamepad.__disconnect(event.gamepad.index);
+			break;
+		default:
+		}
 	}
 	,handleInputEvent: function(event) {
 		if(lime__$backend_html5_HTML5Window.textInput.value != "") {
@@ -5181,6 +5324,17 @@ lime__$backend_html5_HTML5Window.prototype = {
 		if(this.element != null) {
 			if(this.canvas != null) rect = this.canvas.getBoundingClientRect(); else if(this.div != null) rect = this.div.getBoundingClientRect(); else rect = this.element.getBoundingClientRect();
 		}
+		var windowWidth = this.setWidth;
+		var windowHeight = this.setHeight;
+		if(windowWidth == 0 || windowHeight == 0) {
+			if(rect != null) {
+				windowWidth = rect.width;
+				windowHeight = rect.height;
+			} else {
+				windowWidth = 1;
+				windowHeight = 1;
+			}
+		}
 		var _g = 0;
 		var _g1 = event.changedTouches;
 		while(_g < _g1.length) {
@@ -5189,8 +5343,8 @@ lime__$backend_html5_HTML5Window.prototype = {
 			var x = 0.0;
 			var y = 0.0;
 			if(rect != null) {
-				x = (data.clientX - rect.left) * (this.parent.__width / rect.width);
-				y = (data.clientY - rect.top) * (this.parent.__height / rect.height);
+				x = (data.clientX - rect.left) * (windowWidth / rect.width);
+				y = (data.clientY - rect.top) * (windowHeight / rect.height);
 			} else {
 				x = data.clientX;
 				y = data.clientY;
@@ -5199,9 +5353,9 @@ lime__$backend_html5_HTML5Window.prototype = {
 			switch(_g2) {
 			case "touchstart":
 				var touch = this.unusedTouchesPool.pop();
-				if(touch == null) touch = new lime_ui_Touch(x / this.setWidth,y / this.setHeight,data.identifier,0,0,data.force,this.parent.id); else {
-					touch.x = x / this.setWidth;
-					touch.y = y / this.setHeight;
+				if(touch == null) touch = new lime_ui_Touch(x / windowWidth,y / windowHeight,data.identifier,0,0,data.force,this.parent.id); else {
+					touch.x = x / windowWidth;
+					touch.y = y / windowHeight;
 					touch.id = data.identifier;
 					touch.dx = 0;
 					touch.dy = 0;
@@ -5218,8 +5372,8 @@ lime__$backend_html5_HTML5Window.prototype = {
 				if(touch1 != null) {
 					var cacheX = touch1.x;
 					var cacheY = touch1.y;
-					touch1.x = x / this.setWidth;
-					touch1.y = y / this.setHeight;
+					touch1.x = x / windowWidth;
+					touch1.y = y / windowHeight;
 					touch1.dx = touch1.x - cacheX;
 					touch1.dy = touch1.y - cacheY;
 					touch1.pressure = data.force;
@@ -5237,8 +5391,8 @@ lime__$backend_html5_HTML5Window.prototype = {
 				if(touch2 != null) {
 					var cacheX1 = touch2.x;
 					var cacheY1 = touch2.y;
-					touch2.x = x / this.setWidth;
-					touch2.y = y / this.setHeight;
+					touch2.x = x / windowWidth;
+					touch2.y = y / windowHeight;
 					touch2.dx = touch2.x - cacheX1;
 					touch2.dy = touch2.y - cacheY1;
 					touch2.pressure = data.force;
@@ -5325,6 +5479,7 @@ lime_app_Module.prototype = {
 	,onGamepadButtonUp: function(gamepad,button) {
 	}
 	,onGamepadConnect: function(gamepad) {
+		haxe_Log.trace("onGamepadConnect (module)",{ fileName : "Module.hx", lineNumber : 64, className : "lime.app.Module", methodName : "onGamepadConnect"});
 	}
 	,onGamepadDisconnect: function(gamepad) {
 	}
@@ -5419,8 +5574,8 @@ var lime_app_Application = function() {
 	this.backend = new lime__$backend_html5_HTML5Application(this);
 	this.onExit.add($bind(this,this.onModuleExit));
 	this.onUpdate.add($bind(this,this.update));
-	lime_ui_Gamepad.onConnect.add($bind(this,this.onGamepadConnect));
-	lime_ui_Joystick.onConnect.add($bind(this,this.onJoystickConnect));
+	lime_ui_Gamepad.onConnect.add($bind(this,this.__onGamepadConnect));
+	lime_ui_Joystick.onConnect.add($bind(this,this.__onJoystickConnect));
 	lime_ui_Touch.onStart.add($bind(this,this.onTouchStart));
 	lime_ui_Touch.onMove.add($bind(this,this.onTouchMove));
 	lime_ui_Touch.onEnd.add($bind(this,this.onTouchEnd));
@@ -5639,26 +5794,6 @@ lime_app_Application.prototype = $extend(lime_app_Module.prototype,{
 			++_g;
 			module.onGamepadConnect(gamepad);
 		}
-		gamepad.onAxisMove.add((function(f,a1) {
-			return function(a2,a3) {
-				f(a1,a2,a3);
-			};
-		})($bind(this,this.onGamepadAxisMove),gamepad));
-		gamepad.onButtonDown.add((function(f1,a11) {
-			return function(a21) {
-				f1(a11,a21);
-			};
-		})($bind(this,this.onGamepadButtonDown),gamepad));
-		gamepad.onButtonUp.add((function(f2,a12) {
-			return function(a22) {
-				f2(a12,a22);
-			};
-		})($bind(this,this.onGamepadButtonUp),gamepad));
-		gamepad.onDisconnect.add((function(f3,a13) {
-			return function() {
-				f3(a13);
-			};
-		})($bind(this,this.onGamepadDisconnect),gamepad));
 	}
 	,onGamepadDisconnect: function(gamepad) {
 		var _g = 0;
@@ -5704,36 +5839,6 @@ lime_app_Application.prototype = $extend(lime_app_Module.prototype,{
 			++_g;
 			module.onJoystickConnect(joystick);
 		}
-		joystick.onAxisMove.add((function(f,a1) {
-			return function(a2,a3) {
-				f(a1,a2,a3);
-			};
-		})($bind(this,this.onJoystickAxisMove),joystick));
-		joystick.onButtonDown.add((function(f1,a11) {
-			return function(a21) {
-				f1(a11,a21);
-			};
-		})($bind(this,this.onJoystickButtonDown),joystick));
-		joystick.onButtonUp.add((function(f2,a12) {
-			return function(a22) {
-				f2(a12,a22);
-			};
-		})($bind(this,this.onJoystickButtonUp),joystick));
-		joystick.onDisconnect.add((function(f3,a13) {
-			return function() {
-				f3(a13);
-			};
-		})($bind(this,this.onJoystickDisconnect),joystick));
-		joystick.onHatMove.add((function(f4,a14) {
-			return function(a23,a31) {
-				f4(a14,a23,a31);
-			};
-		})($bind(this,this.onJoystickHatMove),joystick));
-		joystick.onTrackballMove.add((function(f5,a15) {
-			return function(a24,a32) {
-				f5(a15,a24,a32);
-			};
-		})($bind(this,this.onJoystickTrackballMove),joystick));
 	}
 	,onJoystickDisconnect: function(joystick) {
 		var _g = 0;
@@ -6079,6 +6184,62 @@ lime_app_Application.prototype = $extend(lime_app_Module.prototype,{
 			++_g;
 			module.update(deltaTime);
 		}
+	}
+	,__onGamepadConnect: function(gamepad) {
+		this.onGamepadConnect(gamepad);
+		gamepad.onAxisMove.add((function(f,a1) {
+			return function(a2,a3) {
+				f(a1,a2,a3);
+			};
+		})($bind(this,this.onGamepadAxisMove),gamepad));
+		gamepad.onButtonDown.add((function(f1,a11) {
+			return function(a21) {
+				f1(a11,a21);
+			};
+		})($bind(this,this.onGamepadButtonDown),gamepad));
+		gamepad.onButtonUp.add((function(f2,a12) {
+			return function(a22) {
+				f2(a12,a22);
+			};
+		})($bind(this,this.onGamepadButtonUp),gamepad));
+		gamepad.onDisconnect.add((function(f3,a13) {
+			return function() {
+				f3(a13);
+			};
+		})($bind(this,this.onGamepadDisconnect),gamepad));
+	}
+	,__onJoystickConnect: function(joystick) {
+		this.onJoystickConnect(joystick);
+		joystick.onAxisMove.add((function(f,a1) {
+			return function(a2,a3) {
+				f(a1,a2,a3);
+			};
+		})($bind(this,this.onJoystickAxisMove),joystick));
+		joystick.onButtonDown.add((function(f1,a11) {
+			return function(a21) {
+				f1(a11,a21);
+			};
+		})($bind(this,this.onJoystickButtonDown),joystick));
+		joystick.onButtonUp.add((function(f2,a12) {
+			return function(a22) {
+				f2(a12,a22);
+			};
+		})($bind(this,this.onJoystickButtonUp),joystick));
+		joystick.onDisconnect.add((function(f3,a13) {
+			return function() {
+				f3(a13);
+			};
+		})($bind(this,this.onJoystickDisconnect),joystick));
+		joystick.onHatMove.add((function(f4,a14) {
+			return function(a23,a31) {
+				f4(a14,a23,a31);
+			};
+		})($bind(this,this.onJoystickHatMove),joystick));
+		joystick.onTrackballMove.add((function(f5,a15) {
+			return function(a24,a32) {
+				f5(a15,a24,a32);
+			};
+		})($bind(this,this.onJoystickTrackballMove),joystick));
 	}
 	,get_frameRate: function() {
 		return this.backend.getFrameRate();
@@ -6691,226 +6852,6 @@ lime_app_Event_$lime_$graphics_$RenderContext_$Void.prototype = {
 	}
 	,__class__: lime_app_Event_$lime_$graphics_$RenderContext_$Void
 };
-var lime_app_Event_$lime_$net_$URLLoader_$Int_$Int_$Void = function() {
-	this.listeners = [];
-	this.priorities = [];
-	this.repeat = [];
-};
-$hxClasses["lime.app.Event_lime_net_URLLoader_Int_Int_Void"] = lime_app_Event_$lime_$net_$URLLoader_$Int_$Int_$Void;
-lime_app_Event_$lime_$net_$URLLoader_$Int_$Int_$Void.__name__ = ["lime","app","Event_lime_net_URLLoader_Int_Int_Void"];
-lime_app_Event_$lime_$net_$URLLoader_$Int_$Int_$Void.prototype = {
-	add: function(listener,once,priority) {
-		if(priority == null) priority = 0;
-		if(once == null) once = false;
-		var _g1 = 0;
-		var _g = this.priorities.length;
-		while(_g1 < _g) {
-			var i = _g1++;
-			if(priority > this.priorities[i]) {
-				this.listeners.splice(i,0,listener);
-				this.priorities.splice(i,0,priority);
-				this.repeat.splice(i,0,!once);
-				return;
-			}
-		}
-		this.listeners.push(listener);
-		this.priorities.push(priority);
-		this.repeat.push(!once);
-	}
-	,has: function(listener) {
-		var _g = 0;
-		var _g1 = this.listeners;
-		while(_g < _g1.length) {
-			var l = _g1[_g];
-			++_g;
-			if(Reflect.compareMethods(l,listener)) return true;
-		}
-		return false;
-	}
-	,remove: function(listener) {
-		var i = this.listeners.length;
-		while(--i >= 0) if(Reflect.compareMethods(this.listeners[i],listener)) {
-			this.listeners.splice(i,1);
-			this.priorities.splice(i,1);
-			this.repeat.splice(i,1);
-		}
-	}
-	,dispatch: function(a,a1,a2) {
-		var listeners = this.listeners;
-		var repeat = this.repeat;
-		var i = 0;
-		while(i < listeners.length) {
-			listeners[i](a,a1,a2);
-			if(!repeat[i]) this.remove(listeners[i]); else i++;
-		}
-	}
-	,__class__: lime_app_Event_$lime_$net_$URLLoader_$Int_$Int_$Void
-};
-var lime_app_Event_$lime_$net_$URLLoader_$Int_$Void = function() {
-	this.listeners = [];
-	this.priorities = [];
-	this.repeat = [];
-};
-$hxClasses["lime.app.Event_lime_net_URLLoader_Int_Void"] = lime_app_Event_$lime_$net_$URLLoader_$Int_$Void;
-lime_app_Event_$lime_$net_$URLLoader_$Int_$Void.__name__ = ["lime","app","Event_lime_net_URLLoader_Int_Void"];
-lime_app_Event_$lime_$net_$URLLoader_$Int_$Void.prototype = {
-	add: function(listener,once,priority) {
-		if(priority == null) priority = 0;
-		if(once == null) once = false;
-		var _g1 = 0;
-		var _g = this.priorities.length;
-		while(_g1 < _g) {
-			var i = _g1++;
-			if(priority > this.priorities[i]) {
-				this.listeners.splice(i,0,listener);
-				this.priorities.splice(i,0,priority);
-				this.repeat.splice(i,0,!once);
-				return;
-			}
-		}
-		this.listeners.push(listener);
-		this.priorities.push(priority);
-		this.repeat.push(!once);
-	}
-	,has: function(listener) {
-		var _g = 0;
-		var _g1 = this.listeners;
-		while(_g < _g1.length) {
-			var l = _g1[_g];
-			++_g;
-			if(Reflect.compareMethods(l,listener)) return true;
-		}
-		return false;
-	}
-	,remove: function(listener) {
-		var i = this.listeners.length;
-		while(--i >= 0) if(Reflect.compareMethods(this.listeners[i],listener)) {
-			this.listeners.splice(i,1);
-			this.priorities.splice(i,1);
-			this.repeat.splice(i,1);
-		}
-	}
-	,dispatch: function(a,a1) {
-		var listeners = this.listeners;
-		var repeat = this.repeat;
-		var i = 0;
-		while(i < listeners.length) {
-			listeners[i](a,a1);
-			if(!repeat[i]) this.remove(listeners[i]); else i++;
-		}
-	}
-	,__class__: lime_app_Event_$lime_$net_$URLLoader_$Int_$Void
-};
-var lime_app_Event_$lime_$net_$URLLoader_$String_$Void = function() {
-	this.listeners = [];
-	this.priorities = [];
-	this.repeat = [];
-};
-$hxClasses["lime.app.Event_lime_net_URLLoader_String_Void"] = lime_app_Event_$lime_$net_$URLLoader_$String_$Void;
-lime_app_Event_$lime_$net_$URLLoader_$String_$Void.__name__ = ["lime","app","Event_lime_net_URLLoader_String_Void"];
-lime_app_Event_$lime_$net_$URLLoader_$String_$Void.prototype = {
-	add: function(listener,once,priority) {
-		if(priority == null) priority = 0;
-		if(once == null) once = false;
-		var _g1 = 0;
-		var _g = this.priorities.length;
-		while(_g1 < _g) {
-			var i = _g1++;
-			if(priority > this.priorities[i]) {
-				this.listeners.splice(i,0,listener);
-				this.priorities.splice(i,0,priority);
-				this.repeat.splice(i,0,!once);
-				return;
-			}
-		}
-		this.listeners.push(listener);
-		this.priorities.push(priority);
-		this.repeat.push(!once);
-	}
-	,has: function(listener) {
-		var _g = 0;
-		var _g1 = this.listeners;
-		while(_g < _g1.length) {
-			var l = _g1[_g];
-			++_g;
-			if(Reflect.compareMethods(l,listener)) return true;
-		}
-		return false;
-	}
-	,remove: function(listener) {
-		var i = this.listeners.length;
-		while(--i >= 0) if(Reflect.compareMethods(this.listeners[i],listener)) {
-			this.listeners.splice(i,1);
-			this.priorities.splice(i,1);
-			this.repeat.splice(i,1);
-		}
-	}
-	,dispatch: function(a,a1) {
-		var listeners = this.listeners;
-		var repeat = this.repeat;
-		var i = 0;
-		while(i < listeners.length) {
-			listeners[i](a,a1);
-			if(!repeat[i]) this.remove(listeners[i]); else i++;
-		}
-	}
-	,__class__: lime_app_Event_$lime_$net_$URLLoader_$String_$Void
-};
-var lime_app_Event_$lime_$net_$URLLoader_$Void = function() {
-	this.listeners = [];
-	this.priorities = [];
-	this.repeat = [];
-};
-$hxClasses["lime.app.Event_lime_net_URLLoader_Void"] = lime_app_Event_$lime_$net_$URLLoader_$Void;
-lime_app_Event_$lime_$net_$URLLoader_$Void.__name__ = ["lime","app","Event_lime_net_URLLoader_Void"];
-lime_app_Event_$lime_$net_$URLLoader_$Void.prototype = {
-	add: function(listener,once,priority) {
-		if(priority == null) priority = 0;
-		if(once == null) once = false;
-		var _g1 = 0;
-		var _g = this.priorities.length;
-		while(_g1 < _g) {
-			var i = _g1++;
-			if(priority > this.priorities[i]) {
-				this.listeners.splice(i,0,listener);
-				this.priorities.splice(i,0,priority);
-				this.repeat.splice(i,0,!once);
-				return;
-			}
-		}
-		this.listeners.push(listener);
-		this.priorities.push(priority);
-		this.repeat.push(!once);
-	}
-	,has: function(listener) {
-		var _g = 0;
-		var _g1 = this.listeners;
-		while(_g < _g1.length) {
-			var l = _g1[_g];
-			++_g;
-			if(Reflect.compareMethods(l,listener)) return true;
-		}
-		return false;
-	}
-	,remove: function(listener) {
-		var i = this.listeners.length;
-		while(--i >= 0) if(Reflect.compareMethods(this.listeners[i],listener)) {
-			this.listeners.splice(i,1);
-			this.priorities.splice(i,1);
-			this.repeat.splice(i,1);
-		}
-	}
-	,dispatch: function(a) {
-		var listeners = this.listeners;
-		var repeat = this.repeat;
-		var i = 0;
-		while(i < listeners.length) {
-			listeners[i](a);
-			if(!repeat[i]) this.remove(listeners[i]); else i++;
-		}
-	}
-	,__class__: lime_app_Event_$lime_$net_$URLLoader_$Void
-};
 var lime_app_Event_$lime_$ui_$GamepadAxis_$Float_$Void = function() {
 	this.listeners = [];
 	this.priorities = [];
@@ -7336,6 +7277,7 @@ lime_app_Preloader.prototype = {
 	}
 	,load: function(urls,types) {
 		var url = null;
+		var cacheVersion = lime_Assets.cache.version;
 		var _g1 = 0;
 		var _g = urls.length;
 		while(_g1 < _g) {
@@ -7348,21 +7290,20 @@ lime_app_Preloader.prototype = {
 					var image = new Image();
 					lime_app_Preloader.images.set(url,image);
 					image.onload = $bind(this,this.image_onLoad);
-					image.src = url;
+					image.src = url + "?" + cacheVersion;
 					this.total++;
 				}
 				break;
 			case "BINARY":
 				if(!lime_app_Preloader.loaders.exists(url)) {
-					var loader = new lime_net_URLLoader();
-					loader.set_dataFormat(lime_net_URLLoaderDataFormat.BINARY);
+					var loader = new lime_net_HTTPRequest();
 					lime_app_Preloader.loaders.set(url,loader);
 					this.total++;
 				}
 				break;
 			case "TEXT":
 				if(!lime_app_Preloader.loaders.exists(url)) {
-					var loader1 = new lime_net_URLLoader();
+					var loader1 = new lime_net_HTTPRequest();
 					lime_app_Preloader.loaders.set(url,loader1);
 					this.total++;
 				}
@@ -7378,8 +7319,8 @@ lime_app_Preloader.prototype = {
 		while( $it0.hasNext() ) {
 			var url1 = $it0.next();
 			var loader2 = lime_app_Preloader.loaders.get(url1);
-			loader2.onComplete.add($bind(this,this.loader_onComplete));
-			loader2.load(new lime_net_URLRequest(url1));
+			var future = loader2.load(url1 + "?" + cacheVersion);
+			future.onComplete($bind(this,this.loader_onComplete));
 		}
 		if(this.total == 0) this.start();
 	}
@@ -7437,7 +7378,7 @@ lime_app_Preloader.prototype = {
 		this.onProgress.dispatch(this.loaded,this.total);
 		if(this.loaded == this.total) this.start();
 	}
-	,loader_onComplete: function(loader) {
+	,loader_onComplete: function(_) {
 		this.loaded++;
 		this.onProgress.dispatch(this.loaded,this.total);
 		if(this.loaded == this.total) this.start();
@@ -7910,15 +7851,6 @@ lime_audio_AudioBuffer.fromFile = function(path) {
 };
 lime_audio_AudioBuffer.fromURL = function(url,handler) {
 	if(url != null && url.indexOf("http://") == -1 && url.indexOf("https://") == -1) handler(lime_audio_AudioBuffer.fromFile(url)); else {
-		var loader = new lime_net_URLLoader();
-		loader.onComplete.add(function(_) {
-			var bytes = haxe_io_Bytes.ofString(loader.data);
-			handler(lime_audio_AudioBuffer.fromBytes(lime_utils_ByteArray.fromBytes(bytes)));
-		});
-		loader.onIOError.add(function(_1,msg) {
-			handler(null);
-		});
-		loader.load(new lime_net_URLRequest(url));
 	}
 };
 lime_audio_AudioBuffer.prototype = {
@@ -8820,21 +8752,18 @@ lime_graphics_Image.__base64Encode = function(bytes) {
 		extension = "";
 	}
 	if(lime_graphics_Image.__base64Encoder == null) lime_graphics_Image.__base64Encoder = new haxe_crypto_BaseCode(haxe_io_Bytes.ofString(lime_graphics_Image.__base64Chars));
-	return lime_graphics_Image.__base64Encoder.encodeBytes(haxe_io_Bytes.ofData(bytes.byteView)).toString() + extension;
+	return lime_graphics_Image.__base64Encoder.encodeBytes(bytes).toString() + extension;
 };
 lime_graphics_Image.__isJPG = function(bytes) {
-	bytes.position = 0;
-	return bytes.readUnsignedByte() == 255 && bytes.readUnsignedByte() == 216;
+	return bytes.b[0] == 255 && bytes.b[1] == 216;
 };
 lime_graphics_Image.__isPNG = function(bytes) {
-	bytes.position = 0;
-	return bytes.readUnsignedByte() == 137 && bytes.readUnsignedByte() == 80 && bytes.readUnsignedByte() == 78 && bytes.readUnsignedByte() == 71 && bytes.readUnsignedByte() == 13 && bytes.readUnsignedByte() == 10 && bytes.readUnsignedByte() == 26 && bytes.readUnsignedByte() == 10;
+	return bytes.b[0] == 137 && bytes.b[1] == 80 && bytes.b[2] == 78 && bytes.b[3] == 71 && bytes.b[4] == 13 && bytes.b[5] == 10 && bytes.b[6] == 26 && bytes.b[7] == 10;
 };
 lime_graphics_Image.__isGIF = function(bytes) {
-	bytes.position = 0;
-	if(bytes.readUnsignedByte() == 71 && bytes.readUnsignedByte() == 73 && bytes.readUnsignedByte() == 70 && bytes.readUnsignedByte() == 56) {
-		var b = bytes.readUnsignedByte();
-		return (b == 55 || b == 57) && bytes.readUnsignedByte() == 97;
+	if(bytes.b[0] == 71 && bytes.b[1] == 73 && bytes.b[2] == 70 && bytes.b[3] == 56) {
+		var b = bytes.b[4];
+		return (b == 55 || b == 57) && bytes.b[5] == 97;
 	}
 	return false;
 };
@@ -9188,74 +9117,7 @@ lime_graphics_Image.prototype = {
 			lime_graphics_utils_ImageCanvasUtil.convertToData(this);
 			return lime_graphics_utils_ImageDataUtil.getPixels(this,rect,format);
 		case 2:
-			rect.offset(this.offsetX,this.offsetY);
-			var byteArray = this.buffer.__srcBitmapData.getPixels(rect.__toFlashRectangle());
-			if(format != null) switch(format) {
-			case 1:
-				break;
-			case 2:
-				var color;
-				var length = byteArray.length / 4 | 0;
-				var _g1 = 0;
-				while(_g1 < length) {
-					var i = _g1++;
-					{
-						var argb = byteArray.readUnsignedInt();
-						var bgra = 0;
-						bgra = (argb & 255 & 255) << 24 | (argb >> 8 & 255 & 255) << 16 | (argb >> 16 & 255 & 255) << 8 | argb >> 24 & 255 & 255;
-						color = bgra;
-					}
-					byteArray.position -= 4;
-					byteArray.writeUnsignedInt(color);
-				}
-				byteArray.position = 0;
-				break;
-			default:
-				var color1;
-				var length1 = byteArray.length / 4 | 0;
-				var _g11 = 0;
-				while(_g11 < length1) {
-					var i1 = _g11++;
-					{
-						var argb1 = byteArray.readUnsignedInt();
-						var rgba = 0;
-						rgba = (argb1 >> 16 & 255 & 255) << 24 | (argb1 >> 8 & 255 & 255) << 16 | (argb1 & 255 & 255) << 8 | argb1 >> 24 & 255 & 255;
-						color1 = rgba;
-					}
-					byteArray.position -= 4;
-					byteArray.writeUnsignedInt((function($this) {
-						var $r;
-						var bgra1 = 0;
-						bgra1 = (color1 >> 8 & 255 & 255) << 24 | (color1 >> 16 & 255 & 255) << 16 | (color1 >> 24 & 255 & 255) << 8 | color1 & 255 & 255;
-						$r = bgra1;
-						return $r;
-					}(this)));
-				}
-				byteArray.position = 0;
-			} else {
-				var color2;
-				var length2 = byteArray.length / 4 | 0;
-				var _g12 = 0;
-				while(_g12 < length2) {
-					var i2 = _g12++;
-					{
-						var argb2 = byteArray.readUnsignedInt();
-						var rgba1 = 0;
-						rgba1 = (argb2 >> 16 & 255 & 255) << 24 | (argb2 >> 8 & 255 & 255) << 16 | (argb2 & 255 & 255) << 8 | argb2 >> 24 & 255 & 255;
-						color2 = rgba1;
-					}
-					byteArray.position -= 4;
-					byteArray.writeUnsignedInt((function($this) {
-						var $r;
-						var bgra2 = 0;
-						bgra2 = (color2 >> 8 & 255 & 255) << 24 | (color2 >> 16 & 255 & 255) << 16 | (color2 >> 24 & 255 & 255) << 8 | color2 & 255 & 255;
-						$r = bgra2;
-						return $r;
-					}(this)));
-				}
-				byteArray.position = 0;
-			}
-			return byteArray;
+			return null;
 		default:
 			return null;
 		}
@@ -9403,65 +9265,19 @@ lime_graphics_Image.prototype = {
 		default:
 		}
 	}
-	,setPixels: function(rect,byteArray,format) {
+	,setPixels: function(rect,bytes,format) {
 		rect = this.__clipRect(rect);
 		if(this.buffer == null || rect == null) return;
 		var _g = this.type;
 		switch(_g[1]) {
 		case 0:
-			lime_graphics_utils_ImageCanvasUtil.setPixels(this,rect,byteArray,format);
+			lime_graphics_utils_ImageCanvasUtil.setPixels(this,rect,bytes,format);
 			break;
 		case 1:
 			lime_graphics_utils_ImageCanvasUtil.convertToData(this);
-			lime_graphics_utils_ImageDataUtil.setPixels(this,rect,byteArray,format);
+			lime_graphics_utils_ImageDataUtil.setPixels(this,rect,bytes,format);
 			break;
 		case 2:
-			rect.offset(this.offsetX,this.offsetY);
-			if(format != null) switch(format) {
-			case 1:
-				break;
-			case 2:
-				var srcData = byteArray;
-				byteArray = new lime_utils_ByteArray();
-				var color;
-				var length = byteArray.length / 4 | 0;
-				var _g1 = 0;
-				while(_g1 < length) {
-					var i = _g1++;
-					color = srcData.readUnsignedInt();
-					byteArray.writeUnsignedInt(js_Boot.__cast(color , Int));
-				}
-				srcData.position = 0;
-				byteArray.position = 0;
-				break;
-			default:
-				var srcData1 = byteArray;
-				byteArray = new lime_utils_ByteArray();
-				var color1;
-				var length1 = byteArray.length / 4 | 0;
-				var _g11 = 0;
-				while(_g11 < length1) {
-					var i1 = _g11++;
-					color1 = srcData1.readUnsignedInt();
-					byteArray.writeUnsignedInt(js_Boot.__cast(color1 , Int));
-				}
-				srcData1.position = 0;
-				byteArray.position = 0;
-			} else {
-				var srcData2 = byteArray;
-				byteArray = new lime_utils_ByteArray();
-				var color2;
-				var length2 = byteArray.length / 4 | 0;
-				var _g12 = 0;
-				while(_g12 < length2) {
-					var i2 = _g12++;
-					color2 = srcData2.readUnsignedInt();
-					byteArray.writeUnsignedInt(js_Boot.__cast(color2 , Int));
-				}
-				srcData2.position = 0;
-				byteArray.position = 0;
-			}
-			this.buffer.__srcBitmapData.setPixels(rect.__toFlashRectangle(),byteArray);
 			break;
 		default:
 		}
@@ -9505,7 +9321,7 @@ lime_graphics_Image.prototype = {
 	}
 	,__fromBytes: function(bytes,onload) {
 		var type = "";
-		if(lime_graphics_Image.__isPNG(bytes)) type = "image/png"; else if(lime_graphics_Image.__isJPG(bytes)) type = "image/jpeg"; else if(lime_graphics_Image.__isGIF(bytes)) type = "image/gif"; else throw new js__$Boot_HaxeError("Image tried to read a PNG/JPG ByteArray, but found an invalid header.");
+		if(lime_graphics_Image.__isPNG(bytes)) type = "image/png"; else if(lime_graphics_Image.__isJPG(bytes)) type = "image/jpeg"; else if(lime_graphics_Image.__isGIF(bytes)) type = "image/gif"; else throw new js__$Boot_HaxeError("Image tried to read PNG/JPG Bytes, but found an invalid header.");
 		this.__fromBase64(lime_graphics_Image.__base64Encode(bytes),type,onload);
 	}
 	,__fromFile: function(path,onload,onerror) {
@@ -10197,42 +10013,63 @@ lime_graphics_format_BMP.encode = function(image,type) {
 	default:
 	} else {
 	}
-	var data = new lime_utils_ByteArray(fileHeaderLength + infoHeaderLength + pixelValuesLength);
+	var data = haxe_io_Bytes.alloc(fileHeaderLength + infoHeaderLength + pixelValuesLength);
+	var position = 0;
 	if(fileHeaderLength > 0) {
-		data.writeByte(66);
-		data.writeByte(77);
-		data.writeInt(data.length);
-		data.writeShort(0);
-		data.writeShort(0);
-		data.writeInt(fileHeaderLength + infoHeaderLength);
+		data.set(position++,66);
+		data.set(position++,77);
+		data.setInt32(position,data.length);
+		position += 4;
+		data.setUInt16(position,0);
+		position += 2;
+		data.setUInt16(position,0);
+		position += 2;
+		data.setInt32(position,fileHeaderLength + infoHeaderLength);
+		position += 4;
 	}
-	data.writeInt(infoHeaderLength);
-	data.writeInt(image.width);
-	data.writeInt(type == lime_graphics_format_BMPType.ICO?image.height * 2:image.height);
-	data.writeShort(1);
-	data.writeShort(type == lime_graphics_format_BMPType.RGB?24:32);
-	data.writeInt(type == lime_graphics_format_BMPType.BITFIELD?3:0);
-	data.writeInt(pixelValuesLength);
-	data.writeInt(11824);
-	data.writeInt(11824);
-	data.writeInt(0);
-	data.writeInt(0);
+	data.setInt32(position,infoHeaderLength);
+	position += 4;
+	data.setInt32(position,image.width);
+	position += 4;
+	data.setInt32(position,type == lime_graphics_format_BMPType.ICO?image.height * 2:image.height);
+	position += 4;
+	data.setUInt16(position,1);
+	position += 2;
+	data.setUInt16(position,type == lime_graphics_format_BMPType.RGB?24:32);
+	position += 2;
+	data.setInt32(position,type == lime_graphics_format_BMPType.BITFIELD?3:0);
+	position += 4;
+	data.setInt32(position,pixelValuesLength);
+	position += 4;
+	data.setInt32(position,11824);
+	position += 4;
+	data.setInt32(position,11824);
+	position += 4;
+	data.setInt32(position,0);
+	position += 4;
+	data.setInt32(position,0);
+	position += 4;
 	if(type == lime_graphics_format_BMPType.BITFIELD) {
-		data.writeInt(16711680);
-		data.writeInt(65280);
-		data.writeInt(255);
-		data.writeInt(-16777216);
-		data.writeByte(32);
-		data.writeByte(110);
-		data.writeByte(105);
-		data.writeByte(87);
+		data.setInt32(position,16711680);
+		position += 4;
+		data.setInt32(position,65280);
+		position += 4;
+		data.setInt32(position,255);
+		position += 4;
+		data.setInt32(position,-16777216);
+		position += 4;
+		data.set(position++,32);
+		data.set(position++,110);
+		data.set(position++,105);
+		data.set(position++,87);
 		var _g = 0;
 		while(_g < 48) {
 			var i = _g++;
-			data.writeByte(0);
+			data.set(position++,0);
 		}
 	}
 	var pixels = image.getPixels(new lime_math_Rectangle(0,0,image.width,image.height),1);
+	var readPosition = 0;
 	var a;
 	var r;
 	var g;
@@ -10243,69 +10080,70 @@ lime_graphics_format_BMP.encode = function(image,type) {
 		var _g2 = image.height;
 		while(_g1 < _g2) {
 			var y = _g1++;
-			pixels.position = (image.height - 1 - y) * 4 * image.width;
+			readPosition = (image.height - 1 - y) * 4 * image.width;
 			var _g3 = 0;
 			var _g21 = image.width;
 			while(_g3 < _g21) {
 				var x = _g3++;
-				a = pixels.readByte();
-				r = pixels.readByte();
-				g = pixels.readByte();
-				b = pixels.readByte();
-				data.writeByte(b);
-				data.writeByte(g);
-				data.writeByte(r);
-				data.writeByte(a);
+				a = pixels.get(readPosition++);
+				r = pixels.get(readPosition++);
+				g = pixels.get(readPosition++);
+				b = pixels.get(readPosition++);
+				data.set(position++,b);
+				data.set(position++,g);
+				data.set(position++,r);
+				data.set(position++,a);
 			}
 		}
 		break;
 	case 2:
-		var andMask = new lime_utils_ByteArray(image.width * image.height);
+		var andMask = haxe_io_Bytes.alloc(image.width * image.height);
+		var maskPosition = 0;
 		var _g11 = 0;
 		var _g4 = image.height;
 		while(_g11 < _g4) {
 			var y1 = _g11++;
-			pixels.position = (image.height - 1 - y1) * 4 * image.width;
+			readPosition = (image.height - 1 - y1) * 4 * image.width;
 			var _g31 = 0;
 			var _g22 = image.width;
 			while(_g31 < _g22) {
 				var x1 = _g31++;
-				a = pixels.readByte();
-				r = pixels.readByte();
-				g = pixels.readByte();
-				b = pixels.readByte();
-				data.writeByte(b);
-				data.writeByte(g);
-				data.writeByte(r);
-				data.writeByte(a);
-				andMask.writeByte(0);
+				a = pixels.get(readPosition++);
+				r = pixels.get(readPosition++);
+				g = pixels.get(readPosition++);
+				b = pixels.get(readPosition++);
+				data.set(position++,b);
+				data.set(position++,g);
+				data.set(position++,r);
+				data.set(position++,a);
+				andMask.set(maskPosition++,0);
 			}
 		}
-		data.writeBytes(andMask);
+		data.blit(position,andMask,0,image.width * image.height);
 		break;
 	case 0:
 		var _g12 = 0;
 		var _g5 = image.height;
 		while(_g12 < _g5) {
 			var y2 = _g12++;
-			pixels.position = (image.height - 1 - y2) * 4 * image.width;
+			readPosition = (image.height - 1 - y2) * 4 * image.width;
 			var _g32 = 0;
 			var _g23 = image.width;
 			while(_g32 < _g23) {
 				var x2 = _g32++;
-				a = pixels.readByte();
-				r = pixels.readByte();
-				g = pixels.readByte();
-				b = pixels.readByte();
-				data.writeByte(b);
-				data.writeByte(g);
-				data.writeByte(r);
+				a = pixels.get(readPosition++);
+				r = pixels.get(readPosition++);
+				g = pixels.get(readPosition++);
+				b = pixels.get(readPosition++);
+				data.set(position++,b);
+				data.set(position++,g);
+				data.set(position++,r);
 			}
 			var _g33 = 0;
 			var _g24 = image.width * 3 % 4;
 			while(_g33 < _g24) {
 				var i1 = _g33++;
-				data.writeByte(0);
+				data.set(position++,0);
 			}
 		}
 		break;
@@ -10345,14 +10183,14 @@ lime_graphics_format_JPEG.encode = function(image,quality) {
 	if(image.buffer.__srcCanvas != null) {
 		var data = image.buffer.__srcCanvas.toDataURL("image/jpeg",quality / 100);
 		var buffer = window.atob(data.split(";base64,")[1]);
-		var byteArray = new lime_utils_ByteArray(buffer.length);
+		var bytes = haxe_io_Bytes.alloc(buffer.length);
 		var _g1 = 0;
 		var _g = buffer.length;
 		while(_g1 < _g) {
 			var i = _g1++;
-			byteArray.byteView[i] = HxOverrides.cca(buffer,i);
+			bytes.set(i,HxOverrides.cca(buffer,i));
 		}
-		return byteArray;
+		return bytes;
 	}
 	return null;
 };
@@ -10957,10 +10795,10 @@ lime_graphics_utils_ImageCanvasUtil.setPixel32 = function(image,x,y,color,format
 	lime_graphics_utils_ImageCanvasUtil.createImageData(image);
 	lime_graphics_utils_ImageDataUtil.setPixel32(image,x,y,color,format);
 };
-lime_graphics_utils_ImageCanvasUtil.setPixels = function(image,rect,byteArray,format) {
+lime_graphics_utils_ImageCanvasUtil.setPixels = function(image,rect,bytes,format) {
 	lime_graphics_utils_ImageCanvasUtil.convertToCanvas(image);
 	lime_graphics_utils_ImageCanvasUtil.createImageData(image);
-	lime_graphics_utils_ImageDataUtil.setPixels(image,rect,byteArray,format);
+	lime_graphics_utils_ImageDataUtil.setPixels(image,rect,bytes,format);
 };
 lime_graphics_utils_ImageCanvasUtil.sync = function(image,clear) {
 	if(image.dirty && image.buffer.__srcImageData != null && image.type != lime_graphics_ImageType.DATA) {
@@ -12047,8 +11885,7 @@ lime_graphics_utils_ImageDataUtil.getPixel32 = function(image,x,y,format) {
 lime_graphics_utils_ImageDataUtil.getPixels = function(image,rect,format) {
 	if(image.buffer.data == null) return null;
 	var length = rect.width * rect.height | 0;
-	var byteArray = new lime_utils_ByteArray(length * 4);
-	byteArray.position = 0;
+	var bytes = haxe_io_Bytes.alloc(length * 4);
 	var data = image.buffer.data;
 	var sourceFormat = image.buffer.format;
 	var premultiplied = image.buffer.premultiplied;
@@ -12112,15 +11949,14 @@ lime_graphics_utils_ImageDataUtil.getPixels = function(image,rect,format) {
 				break;
 			default:
 			}
-			byteArray.__set(destPosition++,pixel >> 24 & 255);
-			byteArray.__set(destPosition++,pixel >> 16 & 255);
-			byteArray.__set(destPosition++,pixel >> 8 & 255);
-			byteArray.__set(destPosition++,pixel & 255);
+			bytes.set(destPosition++,pixel >> 24 & 255);
+			bytes.set(destPosition++,pixel >> 16 & 255);
+			bytes.set(destPosition++,pixel >> 8 & 255);
+			bytes.set(destPosition++,pixel & 255);
 			position += 4;
 		}
 	}
-	byteArray.position = 0;
-	return byteArray;
+	return bytes;
 };
 lime_graphics_utils_ImageDataUtil.merge = function(image,sourceImage,sourceRect,destPoint,redMultiplier,greenMultiplier,blueMultiplier,alphaMultiplier) {
 	if(image.buffer.data == null || sourceImage.buffer.data == null) return;
@@ -12605,7 +12441,7 @@ lime_graphics_utils_ImageDataUtil.setPixel32 = function(image,x,y,color,format) 
 	}
 	image.dirty = true;
 };
-lime_graphics_utils_ImageDataUtil.setPixels = function(image,rect,byteArray,format) {
+lime_graphics_utils_ImageDataUtil.setPixels = function(image,rect,bytes,format) {
 	if(image.buffer.data == null) return;
 	var data = image.buffer.data;
 	var sourceFormat = image.buffer.format;
@@ -12615,6 +12451,7 @@ lime_graphics_utils_ImageDataUtil.setPixels = function(image,rect,byteArray,form
 	var color;
 	var pixel;
 	var transparent = image.get_transparent();
+	var dataPosition = 0;
 	var _g1 = 0;
 	var _g = dataView.height;
 	while(_g1 < _g) {
@@ -12624,7 +12461,8 @@ lime_graphics_utils_ImageDataUtil.setPixels = function(image,rect,byteArray,form
 		var _g2 = dataView.width;
 		while(_g3 < _g2) {
 			var x = _g3++;
-			color = byteArray.readUnsignedInt();
+			color = bytes.b[dataPosition + 3] | bytes.b[dataPosition + 2] << 8 | bytes.b[dataPosition + 1] << 16 | bytes.b[dataPosition] << 24;
+			dataPosition += 4;
 			switch(format) {
 			case 1:
 				{
@@ -14554,208 +14392,108 @@ lime_math_color__$RGBA_RGBA_$Impl_$.set_r = function(this1,value) {
 	this1 = (value & 255) << 24 | (this1 >> 16 & 255 & 255) << 16 | (this1 >> 8 & 255 & 255) << 8 | this1 & 255 & 255;
 	return value;
 };
-var lime_net_URLLoader = function(request) {
-	this.onSecurityError = new lime_app_Event_$lime_$net_$URLLoader_$String_$Void();
-	this.onProgress = new lime_app_Event_$lime_$net_$URLLoader_$Int_$Int_$Void();
-	this.onOpen = new lime_app_Event_$lime_$net_$URLLoader_$Void();
-	this.onIOError = new lime_app_Event_$lime_$net_$URLLoader_$String_$Void();
-	this.onHTTPStatus = new lime_app_Event_$lime_$net_$URLLoader_$Int_$Void();
-	this.onComplete = new lime_app_Event_$lime_$net_$URLLoader_$Void();
-	this.bytesLoaded = 0;
-	this.bytesTotal = 0;
-	this.set_dataFormat(lime_net_URLLoaderDataFormat.TEXT);
-	if(request != null) this.load(request);
+var lime_net_HTTPRequest = function() {
+	this.promise = new lime_app_Promise();
 };
-$hxClasses["lime.net.URLLoader"] = lime_net_URLLoader;
-lime_net_URLLoader.__name__ = ["lime","net","URLLoader"];
-lime_net_URLLoader.prototype = {
-	close: function() {
-	}
-	,getData: function() {
-		return null;
-	}
-	,load: function(request) {
-		this.requestUrl(request.url,request.method,request.data,request.formatRequestHeaders());
-	}
-	,registerEvents: function(subject) {
+$hxClasses["lime.net.HTTPRequest"] = lime_net_HTTPRequest;
+lime_net_HTTPRequest.__name__ = ["lime","net","HTTPRequest"];
+lime_net_HTTPRequest.prototype = {
+	load: function(url) {
 		var _g = this;
-		var self = this;
-		if(typeof XMLHttpRequestProgressEvent != "undefined") subject.addEventListener("progress",$bind(this,this.__onProgress),false);
-		subject.onreadystatechange = function() {
-			if(subject.readyState != 4) return;
-			var s;
-			try {
-				s = subject.status;
-			} catch( e ) {
-				haxe_CallStack.lastException = e;
-				if (e instanceof js__$Boot_HaxeError) e = e.val;
-				s = null;
-			}
-			if(s == undefined) s = null;
-			if(s != null) self.onHTTPStatus.dispatch(_g,s);
-			if(s != null && s >= 200 && s < 400) self.__onData(subject.response); else if(s == null) self.onIOError.dispatch(_g,"Failed to connect or resolve host"); else if(s == 12029) self.onIOError.dispatch(_g,"Failed to connect to host"); else if(s == 12007) self.onIOError.dispatch(_g,"Unknown host"); else if(s == 0) {
-				self.onIOError.dispatch(_g,"Unable to make request (may be blocked due to cross-domain permissions)");
-				self.onSecurityError.dispatch(_g,"Unable to make request (may be blocked due to cross-domain permissions)");
-			} else self.onIOError.dispatch(_g,"Http Error #" + subject.status);
+		this.bytesLoaded = 0;
+		this.bytesTotal = 0;
+		var request = new XMLHttpRequest();
+		request.addEventListener("progress",$bind(this,this.request_onProgress),false);
+		request.onreadystatechange = function() {
+			if(request.readyState != 4) return;
+			if(request.status != null && request.status >= 200 && request.status <= 400) {
+				_g.bytes = lime_utils_Bytes.ofData(request.response);
+				_g.promise.complete(_g.bytes);
+			} else _g.promise.error(request.status);
 		};
+		request.open("GET",url,true);
+		request.responseType = "arraybuffer";
+		request.send("");
+		return this.promise.future;
 	}
-	,requestUrl: function(url,method,data,requestHeaders) {
-		var xmlHttpRequest = new XMLHttpRequest();
-		this.registerEvents(xmlHttpRequest);
-		var uri = "";
-		if(js_Boot.__instanceof(data,lime_utils_ByteArray)) {
-			var data1 = data;
-			var _g = this.dataFormat;
-			switch(_g[1]) {
-			case 0:
-				uri = data1.data.buffer;
-				break;
-			default:
-				uri = data1.readUTFBytes(data1.length);
-			}
-		} else if(js_Boot.__instanceof(data,lime_net_URLVariables)) {
-			var data2 = data;
-			var _g1 = 0;
-			var _g11 = Reflect.fields(data2);
-			while(_g1 < _g11.length) {
-				var p = _g11[_g1];
-				++_g1;
-				if(uri.length != 0) uri += "&";
-				uri += encodeURIComponent(p) + "=" + StringTools.urlEncode(Reflect.field(data2,p));
-			}
-		} else if(data != null) uri = data.toString();
-		try {
-			if(method == "GET" && uri != null && uri != "") {
-				var question = url.split("?").length <= 1;
-				xmlHttpRequest.open("GET",url + (question?"?":"&") + Std.string(uri),true);
-				uri = "";
-			} else xmlHttpRequest.open(js_Boot.__cast(method , String),url,true);
-		} catch( e ) {
-			haxe_CallStack.lastException = e;
-			if (e instanceof js__$Boot_HaxeError) e = e.val;
-			this.onIOError.dispatch(this,e.toString());
-			return;
+	,curl_onProgress: function(dltotal,dlnow,uptotal,upnow) {
+		if(upnow > this.bytesLoaded || dlnow > this.bytesLoaded || uptotal > this.bytesTotal || dltotal > this.bytesTotal) {
+			if(upnow > this.bytesLoaded) this.bytesLoaded = upnow | 0;
+			if(dlnow > this.bytesLoaded) this.bytesLoaded = dlnow | 0;
+			if(uptotal > this.bytesTotal) this.bytesTotal = uptotal | 0;
+			if(dltotal > this.bytesTotal) this.bytesTotal = dltotal | 0;
+			this.promise.progress(this.bytesLoaded / this.bytesTotal);
 		}
-		var _g2 = this.dataFormat;
-		switch(_g2[1]) {
-		case 0:
-			xmlHttpRequest.responseType = "arraybuffer";
-			break;
-		default:
-		}
-		var _g3 = 0;
-		while(_g3 < requestHeaders.length) {
-			var header = requestHeaders[_g3];
-			++_g3;
-			xmlHttpRequest.setRequestHeader(header.name,header.value);
-		}
-		xmlHttpRequest.send(uri);
-		this.onOpen.dispatch(this);
-		this.getData = function() {
-			if(xmlHttpRequest.response != null) return xmlHttpRequest.response; else return xmlHttpRequest.responseText;
-		};
+		return 0;
 	}
-	,__onData: function(_) {
-		var content = this.getData();
-		var _g = this.dataFormat;
-		switch(_g[1]) {
-		case 0:
-			this.data = lime_utils_ByteArray.__ofBuffer(content);
-			break;
-		default:
-			this.data = Std.string(content);
-		}
-		this.onComplete.dispatch(this);
+	,curl_onWrite: function(output,size,nmemb) {
+		var cacheBytes = this.bytes;
+		this.bytes = lime_utils_Bytes.alloc(this.bytes.length + output.length);
+		this.bytes.blit(0,cacheBytes,0,cacheBytes.length);
+		this.bytes.blit(cacheBytes.length,output,0,output.length);
+		return size * nmemb;
 	}
-	,__onProgress: function(event) {
-		this.bytesLoaded = event.loaded;
-		this.bytesTotal = event.total;
-		this.onProgress.dispatch(this,this.bytesLoaded,this.bytesTotal);
+	,request_onProgress: function(event) {
+		this.promise.progress(event.loaded / event.total);
 	}
-	,set_dataFormat: function(inputVal) {
-		if(inputVal == lime_net_URLLoaderDataFormat.BINARY && !Reflect.hasField(window,"ArrayBuffer")) this.dataFormat = lime_net_URLLoaderDataFormat.TEXT; else this.dataFormat = inputVal;
-		return this.dataFormat;
-	}
-	,__class__: lime_net_URLLoader
-	,__properties__: {set_dataFormat:"set_dataFormat"}
+	,__class__: lime_net_HTTPRequest
 };
-var lime_net_URLLoaderDataFormat = $hxClasses["lime.net.URLLoaderDataFormat"] = { __ename__ : true, __constructs__ : ["BINARY","TEXT","VARIABLES"] };
-lime_net_URLLoaderDataFormat.BINARY = ["BINARY",0];
-lime_net_URLLoaderDataFormat.BINARY.toString = $estr;
-lime_net_URLLoaderDataFormat.BINARY.__enum__ = lime_net_URLLoaderDataFormat;
-lime_net_URLLoaderDataFormat.TEXT = ["TEXT",1];
-lime_net_URLLoaderDataFormat.TEXT.toString = $estr;
-lime_net_URLLoaderDataFormat.TEXT.__enum__ = lime_net_URLLoaderDataFormat;
-lime_net_URLLoaderDataFormat.VARIABLES = ["VARIABLES",2];
-lime_net_URLLoaderDataFormat.VARIABLES.toString = $estr;
-lime_net_URLLoaderDataFormat.VARIABLES.__enum__ = lime_net_URLLoaderDataFormat;
-var lime_net_URLRequest = function(inURL) {
-	if(inURL != null) this.url = inURL;
-	this.requestHeaders = [];
-	this.method = "GET";
-	this.contentType = null;
+var lime_net_curl__$CURL_CURL_$Impl_$ = {};
+$hxClasses["lime.net.curl._CURL.CURL_Impl_"] = lime_net_curl__$CURL_CURL_$Impl_$;
+lime_net_curl__$CURL_CURL_$Impl_$.__name__ = ["lime","net","curl","_CURL","CURL_Impl_"];
+lime_net_curl__$CURL_CURL_$Impl_$.getDate = function(date,now) {
+	return 0;
 };
-$hxClasses["lime.net.URLRequest"] = lime_net_URLRequest;
-lime_net_URLRequest.__name__ = ["lime","net","URLRequest"];
-lime_net_URLRequest.prototype = {
-	formatRequestHeaders: function() {
-		var res = this.requestHeaders;
-		if(res == null) res = [];
-		if(this.method == "GET" || this.data == null) return res;
-		if(typeof(this.data) == "string" || js_Boot.__instanceof(this.data,lime_utils_ByteArray)) {
-			res = res.slice();
-			res.push(new lime_net_URLRequestHeader("Content-Type",this.contentType != null?this.contentType:"application/x-www-form-urlencoded"));
-		}
-		return res;
-	}
-	,__class__: lime_net_URLRequest
+lime_net_curl__$CURL_CURL_$Impl_$.globalCleanup = function() {
 };
-var lime_net_URLRequestHeader = function(name,value) {
-	if(value == null) value = "";
-	if(name == null) name = "";
-	this.name = name;
-	this.value = value;
+lime_net_curl__$CURL_CURL_$Impl_$.globalInit = function(flags) {
+	return 0;
 };
-$hxClasses["lime.net.URLRequestHeader"] = lime_net_URLRequestHeader;
-lime_net_URLRequestHeader.__name__ = ["lime","net","URLRequestHeader"];
-lime_net_URLRequestHeader.prototype = {
-	__class__: lime_net_URLRequestHeader
+lime_net_curl__$CURL_CURL_$Impl_$.version = function() {
+	return null;
 };
-var lime_net_URLVariables = function(inEncoded) {
-	if(inEncoded != null) this.decode(inEncoded);
+lime_net_curl__$CURL_CURL_$Impl_$.versionInfo = function(type) {
+	return null;
 };
-$hxClasses["lime.net.URLVariables"] = lime_net_URLVariables;
-lime_net_URLVariables.__name__ = ["lime","net","URLVariables"];
-lime_net_URLVariables.prototype = {
-	decode: function(inVars) {
-		var fields = Reflect.fields(this);
-		var _g = 0;
-		while(_g < fields.length) {
-			var f = fields[_g];
-			++_g;
-			Reflect.deleteField(this,f);
-		}
-		var fields1 = inVars.split(";").join("&").split("&");
-		var _g1 = 0;
-		while(_g1 < fields1.length) {
-			var f1 = fields1[_g1];
-			++_g1;
-			var eq = f1.indexOf("=");
-			if(eq > 0) Reflect.setField(this,StringTools.urlDecode(HxOverrides.substr(f1,0,eq)),StringTools.urlDecode(HxOverrides.substr(f1,eq + 1,null))); else if(eq != 0) Reflect.setField(this,decodeURIComponent(f1.split("+").join(" ")),"");
-		}
-	}
-	,toString: function() {
-		var result = [];
-		var fields = Reflect.fields(this);
-		var _g = 0;
-		while(_g < fields.length) {
-			var f = fields[_g];
-			++_g;
-			result.push(encodeURIComponent(f) + "=" + StringTools.urlEncode(Reflect.field(this,f)));
-		}
-		return result.join("&");
-	}
-	,__class__: lime_net_URLVariables
+lime_net_curl__$CURL_CURL_$Impl_$.intGt = function(a,b) {
+	return a > b;
+};
+var lime_net_curl_CURLEasy = function() { };
+$hxClasses["lime.net.curl.CURLEasy"] = lime_net_curl_CURLEasy;
+lime_net_curl_CURLEasy.__name__ = ["lime","net","curl","CURLEasy"];
+lime_net_curl_CURLEasy.cleanup = function(handle) {
+};
+lime_net_curl_CURLEasy.duphandle = function(handle) {
+	return 0;
+};
+lime_net_curl_CURLEasy.escape = function(handle,url,length) {
+	return null;
+};
+lime_net_curl_CURLEasy.getinfo = function(handle,info) {
+	return null;
+};
+lime_net_curl_CURLEasy.init = function() {
+	return 0;
+};
+lime_net_curl_CURLEasy.pause = function(handle,bitMask) {
+	return 0;
+};
+lime_net_curl_CURLEasy.perform = function(handle) {
+	return 0;
+};
+lime_net_curl_CURLEasy.reset = function(handle) {
+};
+lime_net_curl_CURLEasy.setopt = function(handle,option,parameter) {
+	return 0;
+};
+lime_net_curl_CURLEasy.strerror = function(code) {
+	return null;
+};
+lime_net_curl_CURLEasy.unescape = function(handle,url,inLength,outLength) {
+	return null;
+};
+lime_net_curl_CURLEasy.__writeCallback = function(callback,output,size,nmemb) {
+	return 0;
 };
 var lime_system_BackgroundWorker = function() {
 	this.onProgress = new lime_app_Event_$Dynamic_$Void();
@@ -15211,12 +14949,27 @@ $hxClasses["lime.ui.Gamepad"] = lime_ui_Gamepad;
 lime_ui_Gamepad.__name__ = ["lime","ui","Gamepad"];
 lime_ui_Gamepad.addMappings = function(mappings) {
 };
+lime_ui_Gamepad.__connect = function(id) {
+	if(!lime_ui_Gamepad.devices.h.hasOwnProperty(id)) {
+		var gamepad = new lime_ui_Gamepad(id);
+		lime_ui_Gamepad.devices.h[id] = gamepad;
+		lime_ui_Gamepad.onConnect.dispatch(gamepad);
+	}
+};
+lime_ui_Gamepad.__disconnect = function(id) {
+	var gamepad = lime_ui_Gamepad.devices.h[id];
+	if(gamepad != null) gamepad.connected = false;
+	lime_ui_Gamepad.devices.remove(id);
+	if(gamepad != null) gamepad.onDisconnect.dispatch();
+};
 lime_ui_Gamepad.prototype = {
 	get_guid: function() {
-		return null;
+		var devices = lime_ui_Joystick.__getDeviceData();
+		return devices[this.id].id;
 	}
 	,get_name: function() {
-		return null;
+		var devices = lime_ui_Joystick.__getDeviceData();
+		return devices[this.id].id;
 	}
 	,__class__: lime_ui_Gamepad
 	,__properties__: {get_name:"get_name",get_guid:"get_guid"}
@@ -15293,18 +15046,38 @@ var lime_ui_Joystick = function(id) {
 };
 $hxClasses["lime.ui.Joystick"] = lime_ui_Joystick;
 lime_ui_Joystick.__name__ = ["lime","ui","Joystick"];
+lime_ui_Joystick.__connect = function(id) {
+	if(!lime_ui_Joystick.devices.h.hasOwnProperty(id)) {
+		var joystick = new lime_ui_Joystick(id);
+		lime_ui_Joystick.devices.h[id] = joystick;
+		lime_ui_Joystick.onConnect.dispatch(joystick);
+	}
+};
+lime_ui_Joystick.__disconnect = function(id) {
+	var joystick = lime_ui_Joystick.devices.h[id];
+	if(joystick != null) joystick.connected = false;
+	lime_ui_Joystick.devices.remove(id);
+	if(joystick != null) joystick.onDisconnect.dispatch();
+};
+lime_ui_Joystick.__getDeviceData = function() {
+	if(navigator.getGamepads) return navigator.getGamepads(); else if(navigator.webkitGetGamepads) return navigator.webkitGetGamepads(); else return null;
+};
 lime_ui_Joystick.prototype = {
 	get_guid: function() {
-		return null;
+		var devices = lime_ui_Joystick.__getDeviceData();
+		return devices[this.id].id;
 	}
 	,get_name: function() {
-		return null;
+		var devices = lime_ui_Joystick.__getDeviceData();
+		return devices[this.id].id;
 	}
 	,get_numAxes: function() {
-		return 0;
+		var devices = lime_ui_Joystick.__getDeviceData();
+		return devices[this.id].axes.length;
 	}
 	,get_numButtons: function() {
-		return 0;
+		var devices = lime_ui_Joystick.__getDeviceData();
+		return devices[this.id].buttons.length;
 	}
 	,get_numHats: function() {
 		return 0;
@@ -15641,336 +15414,42 @@ var lime_utils_TAError = $hxClasses["lime.utils.TAError"] = { __ename__ : true, 
 lime_utils_TAError.RangeError = ["RangeError",0];
 lime_utils_TAError.RangeError.toString = $estr;
 lime_utils_TAError.RangeError.__enum__ = lime_utils_TAError;
-var lime_utils_ByteArray = function(size) {
-	if(size == null) size = 0;
-	this.littleEndian = false;
-	this.allocated = 0;
-	this.position = 0;
-	this.length = 0;
-	if(size > 0) this.allocated = size;
-	this.___resizeBuffer(this.allocated);
-	this.set_length(this.allocated);
+var lime_utils_Bytes = function(length,bytesData) {
+	haxe_io_Bytes.call(this,bytesData);
 };
-$hxClasses["lime.utils.ByteArray"] = lime_utils_ByteArray;
-lime_utils_ByteArray.__name__ = ["lime","utils","ByteArray"];
-lime_utils_ByteArray.fromBytes = function(bytes) {
-	var result = new lime_utils_ByteArray();
-	result.byteView = new Uint8Array(bytes.b.bufferValue);
-	result.set_length(result.byteView.length);
-	result.allocated = result.length;
-	return result;
+$hxClasses["lime.utils.Bytes"] = lime_utils_Bytes;
+lime_utils_Bytes.__name__ = ["lime","utils","Bytes"];
+lime_utils_Bytes.alloc = function(length) {
+	var bytes = haxe_io_Bytes.alloc(length);
+	return new lime_utils_Bytes(bytes.length,bytes.b.bufferValue);
 };
-lime_utils_ByteArray.readFile = function(path) {
+lime_utils_Bytes.fastGet = function(b,pos) {
+	return b.bytes[pos];
+};
+lime_utils_Bytes.ofData = function(b) {
+	var bytes = haxe_io_Bytes.ofData(b);
+	return new lime_utils_Bytes(bytes.length,bytes.b.bufferValue);
+};
+lime_utils_Bytes.ofString = function(s) {
+	var bytes = haxe_io_Bytes.ofString(s);
+	return new lime_utils_Bytes(bytes.length,bytes.b.bufferValue);
+};
+lime_utils_Bytes.readFile = function(path) {
 	return null;
 };
-lime_utils_ByteArray.__ofBuffer = function(buffer) {
-	var bytes = new lime_utils_ByteArray();
-	bytes.set_length(bytes.allocated = buffer.byteLength);
-	bytes.data = new DataView(buffer);
-	bytes.byteView = new Uint8Array(buffer);
-	return bytes;
+lime_utils_Bytes.lime_bytes_from_data_pointer = function(data,length) {
+	return lime_utils_Bytes.cffi_lime_bytes_from_data_pointer(data,length);
 };
-lime_utils_ByteArray.lime_bytes_from_data_pointer = function(data,length) {
-	return lime_utils_ByteArray.cffi_lime_bytes_from_data_pointer(data,length);
+lime_utils_Bytes.lime_bytes_get_data_pointer = function(data) {
+	return lime_utils_Bytes.cffi_lime_bytes_get_data_pointer(data);
 };
-lime_utils_ByteArray.lime_bytes_get_data_pointer = function(data) {
-	return lime_utils_ByteArray.cffi_lime_bytes_get_data_pointer(data);
+lime_utils_Bytes.lime_bytes_read_file = function(path) {
+	return lime_utils_Bytes.cffi_lime_bytes_read_file(path);
 };
-lime_utils_ByteArray.lime_bytes_read_file = function(path) {
-	return lime_utils_ByteArray.cffi_lime_bytes_read_file(path);
-};
-lime_utils_ByteArray.prototype = {
-	clear: function() {
-		if(this.allocated < 0) this.___resizeBuffer(this.allocated = Std["int"](Math.max(0,this.allocated * 2))); else if(this.allocated > 0) this.___resizeBuffer(this.allocated = 0);
-		this.length = 0;
-		0;
-		this.position = 0;
-	}
-	,compress: function(algorithm) {
-	}
-	,deflate: function() {
-		this.compress(lime_utils_CompressionAlgorithm.DEFLATE);
-	}
-	,inflate: function() {
-		this.uncompress(lime_utils_CompressionAlgorithm.DEFLATE);
-	}
-	,readBoolean: function() {
-		return this.readByte() != 0;
-	}
-	,readByte: function() {
-		var data = this.data;
-		return data.getInt8(this.position++);
-	}
-	,readBytes: function(bytes,offset,length) {
-		if(length == null) length = 0;
-		if(offset == null) offset = 0;
-		if(offset < 0 || length < 0) throw new js__$Boot_HaxeError("Read error - Out of bounds");
-		if(length == 0) length = this.length - this.position;
-		var lengthToEnsure = offset + length;
-		if(bytes.length < lengthToEnsure) {
-			if(bytes.allocated < lengthToEnsure) bytes.___resizeBuffer(bytes.allocated = Std["int"](Math.max(lengthToEnsure,bytes.allocated * 2))); else if(bytes.allocated > lengthToEnsure * 2) bytes.___resizeBuffer(bytes.allocated = lengthToEnsure);
-			bytes.length = lengthToEnsure;
-			lengthToEnsure;
-		}
-		bytes.byteView.set(this.byteView.subarray(this.position,this.position + length),offset);
-		bytes.position = offset;
-		this.position += length;
-		if(bytes.position + length > bytes.length) bytes.set_length(bytes.position + length);
-	}
-	,readDouble: function() {
-		var $double = this.data.getFloat64(this.position,this.littleEndian);
-		this.position += 8;
-		return $double;
-	}
-	,readFloat: function() {
-		var $float = this.data.getFloat32(this.position,this.littleEndian);
-		this.position += 4;
-		return $float;
-	}
-	,readInt: function() {
-		var $int = this.data.getInt32(this.position,this.littleEndian);
-		this.position += 4;
-		return $int;
-	}
-	,readMultiByte: function(length,charSet) {
-		return this.readUTFBytes(length);
-	}
-	,readShort: function() {
-		var $short = this.data.getInt16(this.position,this.littleEndian);
-		this.position += 2;
-		return $short;
-	}
-	,readUnsignedByte: function() {
-		var data = this.data;
-		return data.getUint8(this.position++);
-	}
-	,readUnsignedInt: function() {
-		var uInt = this.data.getUint32(this.position,this.littleEndian);
-		this.position += 4;
-		return uInt;
-	}
-	,readUnsignedShort: function() {
-		var uShort = this.data.getUint16(this.position,this.littleEndian);
-		this.position += 2;
-		return uShort;
-	}
-	,readUTF: function() {
-		var bytesCount = this.readUnsignedShort();
-		return this.readUTFBytes(bytesCount);
-	}
-	,readUTFBytes: function(len) {
-		var value = "";
-		var max = this.position + len;
-		while(this.position < max) {
-			var data = this.data;
-			var c = data.getUint8(this.position++);
-			if(c < 128) {
-				if(c == 0) break;
-				value += String.fromCharCode(c);
-			} else if(c < 224) value += String.fromCharCode((c & 63) << 6 | data.getUint8(this.position++) & 127); else if(c < 240) {
-				var c2 = data.getUint8(this.position++);
-				value += String.fromCharCode((c & 31) << 12 | (c2 & 127) << 6 | data.getUint8(this.position++) & 127);
-			} else {
-				var c21 = data.getUint8(this.position++);
-				var c3 = data.getUint8(this.position++);
-				value += String.fromCharCode((c & 15) << 18 | (c21 & 127) << 12 | c3 << 6 & 127 | data.getUint8(this.position++) & 127);
-			}
-		}
-		return value;
-	}
-	,toString: function() {
-		var cachePosition = this.position;
-		this.position = 0;
-		var value = this.readUTFBytes(this.length);
-		this.position = cachePosition;
-		return value;
-	}
-	,uncompress: function(algorithm) {
-		haxe_Log.trace("Warning: ByteArray.uncompress on JS target requires the 'format' haxelib",{ fileName : "ByteArray.hx", lineNumber : 603, className : "lime.utils.ByteArray", methodName : "uncompress"});
-	}
-	,write_uncheck: function($byte) {
-	}
-	,writeBoolean: function(value) {
-		this.writeByte(value?1:0);
-	}
-	,writeByte: function(value) {
-		var lengthToEnsure = this.position + 1;
-		if(this.length < lengthToEnsure) {
-			if(this.allocated < lengthToEnsure) this.___resizeBuffer(this.allocated = Std["int"](Math.max(lengthToEnsure,this.allocated * 2))); else if(this.allocated > lengthToEnsure * 2) this.___resizeBuffer(this.allocated = lengthToEnsure);
-			this.length = lengthToEnsure;
-			lengthToEnsure;
-		}
-		var data = this.data;
-		data.setInt8(this.position,value);
-		this.position += 1;
-	}
-	,writeBytes: function(bytes,offset,length) {
-		if(length == null) length = 0;
-		if(offset == null) offset = 0;
-		if(bytes.length == 0) return;
-		if(_$UInt_UInt_$Impl_$.gt(0,offset) || _$UInt_UInt_$Impl_$.gt(0,length)) throw new js__$Boot_HaxeError("Write error - Out of bounds");
-		if(length == 0) length = bytes.length;
-		var lengthToEnsure = this.position + length;
-		if(this.length < lengthToEnsure) {
-			if(this.allocated < lengthToEnsure) this.___resizeBuffer(this.allocated = Std["int"](Math.max(lengthToEnsure,this.allocated * 2))); else if(this.allocated > lengthToEnsure * 2) this.___resizeBuffer(this.allocated = lengthToEnsure);
-			this.length = lengthToEnsure;
-			lengthToEnsure;
-		}
-		this.byteView.set(bytes.byteView.subarray(offset,offset + length),this.position);
-		this.position = this.position + length;
-	}
-	,writeDouble: function(x) {
-		var lengthToEnsure = this.position + 8;
-		if(this.length < lengthToEnsure) {
-			if(this.allocated < lengthToEnsure) this.___resizeBuffer(this.allocated = Std["int"](Math.max(lengthToEnsure,this.allocated * 2))); else if(this.allocated > lengthToEnsure * 2) this.___resizeBuffer(this.allocated = lengthToEnsure);
-			this.length = lengthToEnsure;
-			lengthToEnsure;
-		}
-		this.data.setFloat64(this.position,x,this.littleEndian);
-		this.position += 8;
-	}
-	,writeFile: function(path) {
-	}
-	,writeFloat: function(x) {
-		var lengthToEnsure = this.position + 4;
-		if(this.length < lengthToEnsure) {
-			if(this.allocated < lengthToEnsure) this.___resizeBuffer(this.allocated = Std["int"](Math.max(lengthToEnsure,this.allocated * 2))); else if(this.allocated > lengthToEnsure * 2) this.___resizeBuffer(this.allocated = lengthToEnsure);
-			this.length = lengthToEnsure;
-			lengthToEnsure;
-		}
-		this.data.setFloat32(this.position,x,this.littleEndian);
-		this.position += 4;
-	}
-	,writeInt: function(value) {
-		var lengthToEnsure = this.position + 4;
-		if(this.length < lengthToEnsure) {
-			if(this.allocated < lengthToEnsure) this.___resizeBuffer(this.allocated = Std["int"](Math.max(lengthToEnsure,this.allocated * 2))); else if(this.allocated > lengthToEnsure * 2) this.___resizeBuffer(this.allocated = lengthToEnsure);
-			this.length = lengthToEnsure;
-			lengthToEnsure;
-		}
-		this.data.setInt32(this.position,value,this.littleEndian);
-		this.position += 4;
-	}
-	,writeShort: function(value) {
-		var lengthToEnsure = this.position + 2;
-		if(this.length < lengthToEnsure) {
-			if(this.allocated < lengthToEnsure) this.___resizeBuffer(this.allocated = Std["int"](Math.max(lengthToEnsure,this.allocated * 2))); else if(this.allocated > lengthToEnsure * 2) this.___resizeBuffer(this.allocated = lengthToEnsure);
-			this.length = lengthToEnsure;
-			lengthToEnsure;
-		}
-		this.data.setInt16(this.position,value,this.littleEndian);
-		this.position += 2;
-	}
-	,writeUnsignedInt: function(value) {
-		var lengthToEnsure = this.position + 4;
-		if(this.length < lengthToEnsure) {
-			if(this.allocated < lengthToEnsure) this.___resizeBuffer(this.allocated = Std["int"](Math.max(lengthToEnsure,this.allocated * 2))); else if(this.allocated > lengthToEnsure * 2) this.___resizeBuffer(this.allocated = lengthToEnsure);
-			this.length = lengthToEnsure;
-			lengthToEnsure;
-		}
-		this.data.setUint32(this.position,value,this.littleEndian);
-		this.position += 4;
-	}
-	,writeUnsignedShort: function(value) {
-		var lengthToEnsure = this.position + 2;
-		if(this.length < lengthToEnsure) {
-			if(this.allocated < lengthToEnsure) this.___resizeBuffer(this.allocated = Std["int"](Math.max(lengthToEnsure,this.allocated * 2))); else if(this.allocated > lengthToEnsure * 2) this.___resizeBuffer(this.allocated = lengthToEnsure);
-			this.length = lengthToEnsure;
-			lengthToEnsure;
-		}
-		this.data.setUint16(this.position,value,this.littleEndian);
-		this.position += 2;
-	}
-	,writeUTF: function(value) {
-		this.writeUnsignedShort(this.__getUTFBytesCount(value));
-		this.writeUTFBytes(value);
-	}
-	,writeUTFBytes: function(value) {
-		var _g1 = 0;
-		var _g = value.length;
-		while(_g1 < _g) {
-			var i = _g1++;
-			var c = value.charCodeAt(i);
-			if(c <= 127) this.writeByte(c); else if(c <= 2047) {
-				this.writeByte(192 | c >> 6);
-				this.writeByte(128 | c & 63);
-			} else if(c <= 65535) {
-				this.writeByte(224 | c >> 12);
-				this.writeByte(128 | c >> 6 & 63);
-				this.writeByte(128 | c & 63);
-			} else {
-				this.writeByte(240 | c >> 18);
-				this.writeByte(128 | c >> 12 & 63);
-				this.writeByte(128 | c >> 6 & 63);
-				this.writeByte(128 | c & 63);
-			}
-		}
-	}
-	,__fromBytes: function(bytes) {
-		this.byteView = new Uint8Array(bytes.b.bufferValue);
-		this.set_length(this.byteView.length);
-		this.allocated = this.length;
-	}
-	,__get: function(pos) {
-		return this.data.getInt8(pos);
-	}
-	,__getBuffer: function() {
-		return this.data.buffer;
-	}
-	,__getUTFBytesCount: function(value) {
-		var count = 0;
-		var _g1 = 0;
-		var _g = value.length;
-		while(_g1 < _g) {
-			var i = _g1++;
-			var c = value.charCodeAt(i);
-			if(c <= 127) count += 1; else if(c <= 2047) count += 2; else if(c <= 65535) count += 3; else count += 4;
-		}
-		return count;
-	}
-	,___resizeBuffer: function(len) {
-		var oldByteView = this.byteView;
-		var newByteView = new Uint8Array(len);
-		if(oldByteView != null) {
-			if(oldByteView.length <= len) newByteView.set(oldByteView); else newByteView.set(oldByteView.subarray(0,len));
-		}
-		this.byteView = newByteView;
-		this.data = new DataView(newByteView.buffer);
-	}
-	,__set: function(pos,v) {
-		this.data.setUint8(pos,v);
-	}
-	,get_bytesAvailable: function() {
-		return this.length - this.position;
-	}
-	,get_endian: function() {
-		if(this.littleEndian) return "littleEndian"; else return "bigEndian";
-	}
-	,set_endian: function(endian) {
-		this.littleEndian = endian == "littleEndian";
-		return endian;
-	}
-	,set_length: function(value) {
-		if(this.allocated < value) this.___resizeBuffer(this.allocated = Std["int"](Math.max(value,this.allocated * 2))); else if(this.allocated > value * 2) this.___resizeBuffer(this.allocated = value);
-		this.length = value;
-		return value;
-	}
-	,__class__: lime_utils_ByteArray
-	,__properties__: {set_length:"set_length",set_endian:"set_endian",get_endian:"get_endian",get_bytesAvailable:"get_bytesAvailable"}
-};
-var lime_utils_CompressionAlgorithm = $hxClasses["lime.utils.CompressionAlgorithm"] = { __ename__ : true, __constructs__ : ["DEFLATE","ZLIB","LZMA","GZIP"] };
-lime_utils_CompressionAlgorithm.DEFLATE = ["DEFLATE",0];
-lime_utils_CompressionAlgorithm.DEFLATE.toString = $estr;
-lime_utils_CompressionAlgorithm.DEFLATE.__enum__ = lime_utils_CompressionAlgorithm;
-lime_utils_CompressionAlgorithm.ZLIB = ["ZLIB",1];
-lime_utils_CompressionAlgorithm.ZLIB.toString = $estr;
-lime_utils_CompressionAlgorithm.ZLIB.__enum__ = lime_utils_CompressionAlgorithm;
-lime_utils_CompressionAlgorithm.LZMA = ["LZMA",2];
-lime_utils_CompressionAlgorithm.LZMA.toString = $estr;
-lime_utils_CompressionAlgorithm.LZMA.__enum__ = lime_utils_CompressionAlgorithm;
-lime_utils_CompressionAlgorithm.GZIP = ["GZIP",3];
-lime_utils_CompressionAlgorithm.GZIP.toString = $estr;
-lime_utils_CompressionAlgorithm.GZIP.__enum__ = lime_utils_CompressionAlgorithm;
+lime_utils_Bytes.__super__ = haxe_io_Bytes;
+lime_utils_Bytes.prototype = $extend(haxe_io_Bytes.prototype,{
+	__class__: lime_utils_Bytes
+});
 var lime_utils__$Float32Array_Float32Array_$Impl_$ = {};
 $hxClasses["lime.utils._Float32Array.Float32Array_Impl_"] = lime_utils__$Float32Array_Float32Array_$Impl_$;
 lime_utils__$Float32Array_Float32Array_$Impl_$.__name__ = ["lime","utils","_Float32Array","Float32Array_Impl_"];
@@ -16020,19 +15499,6 @@ lime_utils_GLUtils.createProgram = function(vertexSource,fragmentSource) {
 	lime_graphics_opengl_GL.context.linkProgram(program);
 	if(lime_graphics_opengl_GL.context.getProgramParameter(program,35714) == 0) throw new js__$Boot_HaxeError("Unable to initialize the shader program.");
 	return program;
-};
-var lime_utils_IDataInput = function() { };
-$hxClasses["lime.utils.IDataInput"] = lime_utils_IDataInput;
-lime_utils_IDataInput.__name__ = ["lime","utils","IDataInput"];
-lime_utils_IDataInput.prototype = {
-	__class__: lime_utils_IDataInput
-	,__properties__: {set_endian:"set_endian",get_endian:"get_endian",get_bytesAvailable:"get_bytesAvailable"}
-};
-var lime_utils_IMemoryRange = function() { };
-$hxClasses["lime.utils.IMemoryRange"] = lime_utils_IMemoryRange;
-lime_utils_IMemoryRange.__name__ = ["lime","utils","IMemoryRange"];
-lime_utils_IMemoryRange.prototype = {
-	__class__: lime_utils_IMemoryRange
 };
 var lime_utils__$Int16Array_Int16Array_$Impl_$ = {};
 $hxClasses["lime.utils._Int16Array.Int16Array_Impl_"] = lime_utils__$Int16Array_Int16Array_$Impl_$;
@@ -16263,7 +15729,7 @@ openfl_Assets.getBitmapData = function(id,useCache) {
 	return null;
 };
 openfl_Assets.getBytes = function(id) {
-	return lime_Assets.getBytes(id);
+	return openfl_utils__$ByteArray_ByteArray_$Impl_$.fromBytes(lime_Assets.getBytes(id));
 };
 openfl_Assets.getFont = function(id,useCache) {
 	if(useCache == null) useCache = true;
@@ -16374,14 +15840,24 @@ openfl_Assets.loadBitmapData = function(id,useCache,handler) {
 	return promise.future;
 };
 openfl_Assets.loadBytes = function(id,handler) {
+	var promise = new lime_app_Promise();
 	var future = lime_Assets.loadBytes(id);
 	if(handler != null) {
-		future.onComplete(handler);
-		future.onError(function(_) {
+		promise.future.onComplete(handler);
+		promise.future.onError(function(_) {
 			handler(null);
 		});
+		future.onComplete(function(bytes) {
+			promise.complete(openfl_utils__$ByteArray_ByteArray_$Impl_$.fromBytes(bytes));
+		});
+		future.onProgress(function(progress) {
+			promise.progress(progress);
+		});
+		future.onError(function(msg) {
+			promise.error(msg);
+		});
 	}
-	return future;
+	return promise.future;
 };
 openfl_Assets.loadFont = function(id,useCache,handler) {
 	if(useCache == null) useCache = true;
@@ -16509,7 +15985,7 @@ openfl_display_MovieClip.prototype = $extend(openfl_display_Sprite.prototype,{
 		if(method != null) {
 			if(this.__frameScripts == null) this.__frameScripts = new haxe_ds_IntMap();
 			this.__frameScripts.h[index] = method;
-			haxe_Log.trace("added script index " + index,{ fileName : "MovieClip.hx", lineNumber : 149, className : "openfl.display.MovieClip", methodName : "addFrameScript"});
+			haxe_Log.trace("added script index " + index,{ fileName : "MovieClip.hx", lineNumber : 47, className : "openfl.display.MovieClip", methodName : "addFrameScript"});
 		} else if(this.__frameScripts != null) this.__frameScripts.remove(index);
 	}
 	,gotoAndPlay: function(frame,scene) {
@@ -16579,8 +16055,8 @@ openfl_system_ApplicationDomain.prototype = {
 	}
 	,__class__: openfl_system_ApplicationDomain
 };
-var openfl_events_UncaughtErrorEvents = function(target) {
-	openfl_events_EventDispatcher.call(this,target);
+var openfl_events_UncaughtErrorEvents = function() {
+	openfl_events_EventDispatcher.call(this);
 };
 $hxClasses["openfl.events.UncaughtErrorEvents"] = openfl_events_UncaughtErrorEvents;
 openfl_events_UncaughtErrorEvents.__name__ = ["openfl","events","UncaughtErrorEvents"];
@@ -16792,7 +16268,7 @@ openfl_geom_Matrix.prototype = {
 	}
 	,to3DString: function(roundPixels) {
 		if(roundPixels == null) roundPixels = false;
-		if(roundPixels) return "matrix3d(" + this.a + ", " + this.b + ", " + "0, 0, " + this.c + ", " + this.d + ", " + "0, 0, 0, 0, 1, 0, " + (this.tx | 0) + ", " + (this.ty | 0) + ", 0, 1)"; else return "matrix3d(" + this.a + ", " + this.b + ", " + "0, 0, " + this.c + ", " + this.d + ", " + "0, 0, 0, 0, 1, 0, " + this.tx + ", " + this.ty + ", 0, 1)";
+		if(roundPixels) return "matrix3d(" + this.a + ", " + this.b + ", 0, 0, " + this.c + ", " + this.d + ", 0, 0, 0, 0, 1, 0, " + (this.tx | 0) + ", " + (this.ty | 0) + ", 0, 1)"; else return "matrix3d(" + this.a + ", " + this.b + ", 0, 0, " + this.c + ", " + this.d + ", 0, 0, 0, 0, 1, 0, " + this.tx + ", " + this.ty + ", 0, 1)";
 	}
 	,toMozString: function() {
 		return "matrix(" + this.a + ", " + this.b + ", " + this.c + ", " + this.d + ", " + this.tx + "px, " + this.ty + "px)";
@@ -16979,6 +16455,9 @@ openfl_geom_ColorTransform.prototype = {
 		this.blueOffset = second.blueMultiplier * this.blueOffset + second.blueOffset;
 		this.alphaOffset = second.alphaMultiplier * this.alphaOffset + second.alphaOffset;
 	}
+	,toString: function() {
+		return "(redMultiplier=" + this.redMultiplier + ", greenMultiplier=" + this.greenMultiplier + ", blueMultiplier=" + this.blueMultiplier + ", alphaMultiplier=" + this.alphaMultiplier + ", redOffset=" + this.redOffset + ", greenOffset=" + this.greenOffset + ", blueOffset=" + this.blueOffset + ", alphaOffset=" + this.alphaOffset + ")";
+	}
 	,__clone: function() {
 		return new openfl_geom_ColorTransform(this.redMultiplier,this.greenMultiplier,this.blueMultiplier,this.alphaMultiplier,this.redOffset,this.greenOffset,this.blueOffset,this.alphaOffset);
 	}
@@ -17071,7 +16550,7 @@ openfl_Memory._setPositionTemporarily = function(position,action) {
 	return value;
 };
 openfl_Memory.getByte = function(addr) {
-	return openfl_Memory.gcRef.data.getInt8(addr);
+	return openfl_Memory.gcRef.b[addr];
 };
 openfl_Memory.getDouble = function(addr) {
 	return openfl_Memory._setPositionTemporarily(addr,function() {
@@ -17095,10 +16574,11 @@ openfl_Memory.getUI16 = function(addr) {
 };
 openfl_Memory.select = function(inBytes) {
 	openfl_Memory.gcRef = inBytes;
-	if(inBytes != null) openfl_Memory.len = inBytes.length; else openfl_Memory.len = 0;
+	if(inBytes != null) openfl_Memory.len = openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length(inBytes); else openfl_Memory.len = 0;
 };
 openfl_Memory.setByte = function(addr,v) {
-	openfl_Memory.gcRef.data.setUint8(addr,v);
+	openfl_Memory.gcRef.b[addr] = v & 255;
+	v;
 };
 openfl_Memory.setDouble = function(addr,v) {
 	openfl_Memory._setPositionTemporarily(addr,function() {
@@ -17112,7 +16592,7 @@ openfl_Memory.setFloat = function(addr,v) {
 };
 openfl_Memory.setI16 = function(addr,v) {
 	openfl_Memory._setPositionTemporarily(addr,function() {
-		openfl_Memory.gcRef.writeUnsignedShort(v);
+		openfl_Memory.gcRef.writeShort(v);
 	});
 };
 openfl_Memory.setI32 = function(addr,v) {
@@ -17522,7 +17002,7 @@ openfl__$internal_renderer_DrawCommandBuffer.prototype = {
 				data.advance();
 				data.prev = openfl__$internal_renderer_DrawCommandType.CUBIC_CURVE_TO;
 				c3 = data;
-				this.cubicCurveTo(c3.buffer.f[c3.fPos],c3.buffer.f[c3.fPos + 1],c3.buffer.f[c3.fPos + 3],c3.buffer.f[c3.fPos + 4],c3.buffer.f[c3.fPos + 5],c3.buffer.f[c3.fPos + 6]);
+				this.cubicCurveTo(c3.buffer.f[c3.fPos],c3.buffer.f[c3.fPos + 1],c3.buffer.f[c3.fPos + 2],c3.buffer.f[c3.fPos + 3],c3.buffer.f[c3.fPos + 4],c3.buffer.f[c3.fPos + 5]);
 				break;
 			case 4:
 				var c4;
@@ -18093,16 +17573,16 @@ openfl__$internal_renderer__$DrawCommandReader_CubicCurveToView_$Impl_$.get_cont
 	return this1.buffer.f[this1.fPos + 1];
 };
 openfl__$internal_renderer__$DrawCommandReader_CubicCurveToView_$Impl_$.get_controlX2 = function(this1) {
-	return this1.buffer.f[this1.fPos + 3];
+	return this1.buffer.f[this1.fPos + 2];
 };
 openfl__$internal_renderer__$DrawCommandReader_CubicCurveToView_$Impl_$.get_controlY2 = function(this1) {
-	return this1.buffer.f[this1.fPos + 4];
+	return this1.buffer.f[this1.fPos + 3];
 };
 openfl__$internal_renderer__$DrawCommandReader_CubicCurveToView_$Impl_$.get_anchorX = function(this1) {
-	return this1.buffer.f[this1.fPos + 5];
+	return this1.buffer.f[this1.fPos + 4];
 };
 openfl__$internal_renderer__$DrawCommandReader_CubicCurveToView_$Impl_$.get_anchorY = function(this1) {
-	return this1.buffer.f[this1.fPos + 6];
+	return this1.buffer.f[this1.fPos + 5];
 };
 var openfl__$internal_renderer__$DrawCommandReader_CurveToView_$Impl_$ = {};
 $hxClasses["openfl._internal.renderer._DrawCommandReader.CurveToView_Impl_"] = openfl__$internal_renderer__$DrawCommandReader_CurveToView_$Impl_$;
@@ -18859,7 +18339,7 @@ openfl__$internal_renderer_cairo_CairoGraphics.playCommands = function(commands,
 				data.prev = openfl__$internal_renderer_DrawCommandType.CUBIC_CURVE_TO;
 				c = data;
 				hasPath = true;
-				openfl__$internal_renderer_cairo_CairoGraphics.cairo.curveTo(c.buffer.f[c.fPos] - offsetX,c.buffer.f[c.fPos + 1] - offsetY,c.buffer.f[c.fPos + 3] - offsetX,c.buffer.f[c.fPos + 4] - offsetY,c.buffer.f[c.fPos + 5] - offsetX,c.buffer.f[c.fPos + 6] - offsetY);
+				openfl__$internal_renderer_cairo_CairoGraphics.cairo.curveTo(c.buffer.f[c.fPos] - offsetX,c.buffer.f[c.fPos + 1] - offsetY,c.buffer.f[c.fPos + 2] - offsetX,c.buffer.f[c.fPos + 3] - offsetY,c.buffer.f[c.fPos + 4] - offsetX,c.buffer.f[c.fPos + 5] - offsetY);
 				break;
 			case 4:
 				var c1;
@@ -19386,9 +18866,9 @@ openfl__$internal_renderer_cairo_CairoGraphics.renderMask = function(graphics,re
 				data.advance();
 				data.prev = openfl__$internal_renderer_DrawCommandType.CUBIC_CURVE_TO;
 				c = data;
-				cairo.curveTo(c.buffer.f[c.fPos] - offsetX,c.buffer.f[c.fPos + 1] - offsetY,c.buffer.f[c.fPos + 3] - offsetX,c.buffer.f[c.fPos + 4] - offsetY,c.buffer.f[c.fPos + 5] - offsetX,c.buffer.f[c.fPos + 6] - offsetY);
-				positionX = c.buffer.f[c.fPos + 5];
-				positionY = c.buffer.f[c.fPos + 5];
+				cairo.curveTo(c.buffer.f[c.fPos] - offsetX,c.buffer.f[c.fPos + 1] - offsetY,c.buffer.f[c.fPos + 2] - offsetX,c.buffer.f[c.fPos + 3] - offsetY,c.buffer.f[c.fPos + 4] - offsetX,c.buffer.f[c.fPos + 5] - offsetY);
+				positionX = c.buffer.f[c.fPos + 4];
+				positionY = c.buffer.f[c.fPos + 4];
 				break;
 			case 4:
 				var c1;
@@ -19704,8 +19184,8 @@ openfl__$internal_renderer_canvas_CanvasGraphics.hitTest = function(graphics,x,y
 				data.advance();
 				data.prev = openfl__$internal_renderer_DrawCommandType.CUBIC_CURVE_TO;
 				c = data;
-				openfl__$internal_renderer_canvas_CanvasGraphics.fillCommands.cubicCurveTo(c.buffer.f[c.fPos],c.buffer.f[c.fPos + 1],c.buffer.f[c.fPos + 3],c.buffer.f[c.fPos + 4],c.buffer.f[c.fPos + 5],c.buffer.f[c.fPos + 6]);
-				openfl__$internal_renderer_canvas_CanvasGraphics.strokeCommands.cubicCurveTo(c.buffer.f[c.fPos],c.buffer.f[c.fPos + 1],c.buffer.f[c.fPos + 3],c.buffer.f[c.fPos + 4],c.buffer.f[c.fPos + 5],c.buffer.f[c.fPos + 6]);
+				openfl__$internal_renderer_canvas_CanvasGraphics.fillCommands.cubicCurveTo(c.buffer.f[c.fPos],c.buffer.f[c.fPos + 1],c.buffer.f[c.fPos + 2],c.buffer.f[c.fPos + 3],c.buffer.f[c.fPos + 4],c.buffer.f[c.fPos + 5]);
+				openfl__$internal_renderer_canvas_CanvasGraphics.strokeCommands.cubicCurveTo(c.buffer.f[c.fPos],c.buffer.f[c.fPos + 1],c.buffer.f[c.fPos + 2],c.buffer.f[c.fPos + 3],c.buffer.f[c.fPos + 4],c.buffer.f[c.fPos + 5]);
 				break;
 			case 4:
 				var c1;
@@ -19916,7 +19396,7 @@ openfl__$internal_renderer_canvas_CanvasGraphics.playCommands = function(command
 			data.advance();
 			data.prev = openfl__$internal_renderer_DrawCommandType.CUBIC_CURVE_TO;
 			c = data;
-			openfl__$internal_renderer_canvas_CanvasGraphics.context.bezierCurveTo(c.buffer.f[c.fPos] - offsetX,c.buffer.f[c.fPos + 1] - offsetY,c.buffer.f[c.fPos + 3] - offsetX,c.buffer.f[c.fPos + 4] - offsetY,c.buffer.f[c.fPos + 5] - offsetX,c.buffer.f[c.fPos + 6] - offsetY);
+			openfl__$internal_renderer_canvas_CanvasGraphics.context.bezierCurveTo(c.buffer.f[c.fPos] - offsetX,c.buffer.f[c.fPos + 1] - offsetY,c.buffer.f[c.fPos + 2] - offsetX,c.buffer.f[c.fPos + 3] - offsetY,c.buffer.f[c.fPos + 4] - offsetX,c.buffer.f[c.fPos + 5] - offsetY);
 			break;
 		case 4:
 			var c1;
@@ -20179,8 +19659,8 @@ openfl__$internal_renderer_canvas_CanvasGraphics.render = function(graphics,rend
 						data.advance();
 						data.prev = openfl__$internal_renderer_DrawCommandType.CUBIC_CURVE_TO;
 						c = data;
-						openfl__$internal_renderer_canvas_CanvasGraphics.fillCommands.cubicCurveTo(c.buffer.f[c.fPos],c.buffer.f[c.fPos + 1],c.buffer.f[c.fPos + 3],c.buffer.f[c.fPos + 4],c.buffer.f[c.fPos + 5],c.buffer.f[c.fPos + 6]);
-						openfl__$internal_renderer_canvas_CanvasGraphics.strokeCommands.cubicCurveTo(c.buffer.f[c.fPos],c.buffer.f[c.fPos + 1],c.buffer.f[c.fPos + 3],c.buffer.f[c.fPos + 4],c.buffer.f[c.fPos + 5],c.buffer.f[c.fPos + 6]);
+						openfl__$internal_renderer_canvas_CanvasGraphics.fillCommands.cubicCurveTo(c.buffer.f[c.fPos],c.buffer.f[c.fPos + 1],c.buffer.f[c.fPos + 2],c.buffer.f[c.fPos + 3],c.buffer.f[c.fPos + 4],c.buffer.f[c.fPos + 5]);
+						openfl__$internal_renderer_canvas_CanvasGraphics.strokeCommands.cubicCurveTo(c.buffer.f[c.fPos],c.buffer.f[c.fPos + 1],c.buffer.f[c.fPos + 2],c.buffer.f[c.fPos + 3],c.buffer.f[c.fPos + 4],c.buffer.f[c.fPos + 5]);
 						break;
 					case 4:
 						var c1;
@@ -20582,9 +20062,9 @@ openfl__$internal_renderer_canvas_CanvasGraphics.renderMask = function(graphics,
 				data.advance();
 				data.prev = openfl__$internal_renderer_DrawCommandType.CUBIC_CURVE_TO;
 				c = data;
-				openfl__$internal_renderer_canvas_CanvasGraphics.context.bezierCurveTo(c.buffer.f[c.fPos] - offsetX,c.buffer.f[c.fPos + 1] - offsetY,c.buffer.f[c.fPos + 3] - offsetX,c.buffer.f[c.fPos + 4] - offsetY,c.buffer.f[c.fPos + 5] - offsetX,c.buffer.f[c.fPos + 6] - offsetY);
-				positionX = c.buffer.f[c.fPos + 5];
-				positionY = c.buffer.f[c.fPos + 6];
+				openfl__$internal_renderer_canvas_CanvasGraphics.context.bezierCurveTo(c.buffer.f[c.fPos] - offsetX,c.buffer.f[c.fPos + 1] - offsetY,c.buffer.f[c.fPos + 2] - offsetX,c.buffer.f[c.fPos + 3] - offsetY,c.buffer.f[c.fPos + 4] - offsetX,c.buffer.f[c.fPos + 5] - offsetY);
+				positionX = c.buffer.f[c.fPos + 4];
+				positionY = c.buffer.f[c.fPos + 5];
 				break;
 			case 4:
 				var c1;
@@ -21094,7 +20574,7 @@ openfl__$internal_renderer_dom_DOMShape.render = function(shape,renderSession) {
 				transform.identity();
 				transform.translate(graphics.__bounds.x,graphics.__bounds.y);
 				transform.concat(shape.__worldTransform);
-				shape.__style.setProperty(renderSession.transformProperty,renderSession.roundPixels?"matrix3d(" + transform.a + ", " + transform.b + ", " + "0, 0, " + transform.c + ", " + transform.d + ", " + "0, 0, 0, 0, 1, 0, " + (transform.tx | 0) + ", " + (transform.ty | 0) + ", 0, 1)":"matrix3d(" + transform.a + ", " + transform.b + ", " + "0, 0, " + transform.c + ", " + transform.d + ", " + "0, 0, 0, 0, 1, 0, " + transform.tx + ", " + transform.ty + ", 0, 1)",null);
+				shape.__style.setProperty(renderSession.transformProperty,renderSession.roundPixels?"matrix3d(" + transform.a + ", " + transform.b + ", 0, 0, " + transform.c + ", " + transform.d + ", 0, 0, 0, 0, 1, 0, " + (transform.tx | 0) + ", " + (transform.ty | 0) + ", 0, 1)":"matrix3d(" + transform.a + ", " + transform.b + ", 0, 0, " + transform.c + ", " + transform.d + ", 0, 0, 0, 0, 1, 0, " + transform.tx + ", " + transform.ty + ", 0, 1)",null);
 			}
 			openfl__$internal_renderer_dom_DOMRenderer.applyStyle(shape,renderSession,false,false,true);
 		}
@@ -21824,7 +21304,7 @@ openfl__$internal_renderer_opengl_utils_BlendModeManager.prototype = {
 			this.gl.blendEquation(32774);
 			this.gl.blendFunc(1,769);
 			break;
-		case 13:
+		case 14:
 			this.gl.blendEquation(32779);
 			this.gl.blendFunc(1,1);
 			break;
@@ -22007,7 +21487,7 @@ openfl__$internal_renderer_opengl_utils_PathBuiler.build = function(graphics,gl)
 					openfl__$internal_renderer_opengl_utils_PathBuiler.__currentPath.points.push(0);
 					openfl__$internal_renderer_opengl_utils_PathBuiler.__drawPaths.push(openfl__$internal_renderer_opengl_utils_PathBuiler.__currentPath);
 				}
-				openfl__$internal_renderer_GraphicsPaths.cubicCurveTo(openfl__$internal_renderer_opengl_utils_PathBuiler.__currentPath.points,c2.buffer.f[c2.fPos],c2.buffer.f[c2.fPos + 1],c2.buffer.f[c2.fPos + 3],c2.buffer.f[c2.fPos + 4],c2.buffer.f[c2.fPos + 5],c2.buffer.f[c2.fPos + 6]);
+				openfl__$internal_renderer_GraphicsPaths.cubicCurveTo(openfl__$internal_renderer_opengl_utils_PathBuiler.__currentPath.points,c2.buffer.f[c2.fPos],c2.buffer.f[c2.fPos + 1],c2.buffer.f[c2.fPos + 2],c2.buffer.f[c2.fPos + 3],c2.buffer.f[c2.fPos + 4],c2.buffer.f[c2.fPos + 5]);
 				break;
 			case 4:
 				var c3;
@@ -25568,14 +25048,14 @@ openfl_display_Bitmap.prototype = $extend(openfl_display_DisplayObject.prototype
 			rect.__expand(bounds.x,bounds.y,bounds.width,bounds.height);
 		}
 	}
-	,__hitTest: function(x,y,shapeFlag,stack,interactiveOnly) {
-		if(!this.get_visible() || this.__isMask || this.bitmapData == null) return false;
+	,__hitTest: function(x,y,shapeFlag,stack,interactiveOnly,hitObject) {
+		if(!hitObject.get_visible() || this.__isMask || this.bitmapData == null) return false;
 		if(this.get_mask() != null && !this.get_mask().__hitTestMask(x,y)) return false;
 		this.__getWorldTransform();
 		var px = this.__worldTransform.__transformInverseX(x,y);
 		var py = this.__worldTransform.__transformInverseY(x,y);
 		if(px > 0 && py > 0 && px <= this.bitmapData.width && py <= this.bitmapData.height) {
-			if(stack != null && !interactiveOnly) stack.push(this);
+			if(stack != null && !interactiveOnly) stack.push(hitObject);
 			return true;
 		}
 		return false;
@@ -25718,6 +25198,13 @@ openfl_display_BitmapData.fromImage = function(image,transparent) {
 	bitmapData.image.set_transparent(transparent);
 	return bitmapData;
 };
+openfl_display_BitmapData.__asRenderTexture = function(width,height) {
+	if(height == null) height = 0;
+	if(width == null) width = 0;
+	var b = new openfl_display_BitmapData(0,0);
+	b.__resize(width,height);
+	return b;
+};
 openfl_display_BitmapData.__ucompare = function(n1,n2) {
 	var tmp1;
 	var tmp2;
@@ -25736,13 +25223,6 @@ openfl_display_BitmapData.__ucompare = function(n1,n2) {
 			}
 		}
 	}
-};
-openfl_display_BitmapData.__asRenderTexture = function(width,height) {
-	if(height == null) height = 0;
-	if(width == null) width = 0;
-	var b = new openfl_display_BitmapData(0,0);
-	b.__resize(width,height);
-	return b;
 };
 openfl_display_BitmapData.prototype = {
 	applyFilter: function(sourceBitmapData,sourceRect,destPoint,filter) {
@@ -25948,7 +25428,7 @@ openfl_display_BitmapData.prototype = {
 	}
 	,encode: function(rect,compressor,byteArray) {
 		if(!this.__isValid || rect == null) return byteArray = null;
-		if(js_Boot.__instanceof(compressor,openfl_display_PNGEncoderOptions)) return byteArray = this.image.encode("png"); else if(js_Boot.__instanceof(compressor,openfl_display_JPEGEncoderOptions)) return byteArray = this.image.encode("jpg",(js_Boot.__cast(compressor , openfl_display_JPEGEncoderOptions)).quality);
+		if(js_Boot.__instanceof(compressor,openfl_display_PNGEncoderOptions)) return byteArray = openfl_utils__$ByteArray_ByteArray_$Impl_$.fromBytes(this.image.encode("png")); else if(js_Boot.__instanceof(compressor,openfl_display_JPEGEncoderOptions)) return byteArray = openfl_utils__$ByteArray_ByteArray_$Impl_$.fromBytes(this.image.encode("jpg",(js_Boot.__cast(compressor , openfl_display_JPEGEncoderOptions)).quality));
 		return byteArray = null;
 	}
 	,fillRect: function(rect,color) {
@@ -26002,7 +25482,7 @@ openfl_display_BitmapData.prototype = {
 	,getPixels: function(rect) {
 		if(!this.__isValid) return null;
 		if(rect == null) rect = this.rect;
-		return this.image.getPixels(rect.__toLimeRectangle(),1);
+		return openfl_utils__$ByteArray_ByteArray_$Impl_$.fromBytes(this.image.getPixels(rect.__toLimeRectangle(),1));
 	}
 	,getSurface: function() {
 		if(!this.__isValid) return null;
@@ -26047,7 +25527,7 @@ openfl_display_BitmapData.prototype = {
 	}
 	,getVector: function(rect) {
 		var pixels = this.getPixels(rect);
-		var length = pixels.length / 4 | 0;
+		var length = Std["int"](openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length(pixels) / 4);
 		var result;
 		var this1;
 		this1 = new openfl_VectorData();
@@ -26101,7 +25581,7 @@ openfl_display_BitmapData.prototype = {
 		}
 		result = _g;
 		var _g21 = 0;
-		var _g11 = pixels.length;
+		var _g11 = openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length(pixels);
 		while(_g21 < _g11) {
 			var i1 = _g21++;
 			++result[i1 % 4][pixels.readUnsignedByte()];
@@ -26156,7 +25636,7 @@ openfl_display_BitmapData.prototype = {
 			secondRectangle.__contract(0,0,this.width,this.height);
 			if(secondRectangle.width > 0 && secondRectangle.height > 0) {
 				var pixels1 = this.getPixels(secondRectangle);
-				var length1 = pixels1.length / 4 | 0;
+				var length1 = Std["int"](openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length(pixels1) / 4);
 				var pixel2;
 				var _g1 = 0;
 				while(_g1 < length1) {
@@ -26245,12 +25725,12 @@ openfl_display_BitmapData.prototype = {
 	}
 	,setPixels: function(rect,byteArray) {
 		if(!this.__isValid || rect == null) return;
-		this.image.setPixels(rect.__toLimeRectangle(),byteArray,1);
+		this.image.setPixels(rect.__toLimeRectangle(),openfl_utils__$ByteArray_ByteArray_$Impl_$.toBytes(byteArray),1);
 		this.__usingPingPongTexture = false;
 	}
 	,setVector: function(rect,inputVector) {
-		var byteArray = new lime_utils_ByteArray();
-		byteArray.set_length(inputVector.length * 4);
+		var byteArray = new openfl_utils_ByteArrayData(0);
+		openfl_utils__$ByteArray_ByteArray_$Impl_$.set_length(byteArray,inputVector.length * 4);
 		var _g = 0;
 		while(_g < inputVector.length) {
 			var color = inputVector.data[_g];
@@ -26267,7 +25747,7 @@ openfl_display_BitmapData.prototype = {
 		if(sourceBitmapData == null || sourceRect == null || destPoint == null || sourceRect.x > sourceBitmapData.width || sourceRect.y > sourceBitmapData.height || destPoint.x > this.width || destPoint.y > this.height) return 0;
 		if(sourceBitmapData == this && sourceRect.equals(this.rect) && destPoint.x == 0 && destPoint.y == 0) {
 			var hits = 0;
-			var memory = new lime_utils_ByteArray(this.width * this.height * 4);
+			var memory = new openfl_utils_ByteArrayData(this.width * this.height * 4);
 			memory = this.getPixels(this.rect);
 			memory.position = 0;
 			openfl_Memory.select(memory);
@@ -26331,7 +25811,7 @@ openfl_display_BitmapData.prototype = {
 			var canvasMemory = sw * sh * 4;
 			var sourceMemory = sw * sh * 4;
 			var totalMemory = canvasMemory + sourceMemory;
-			var memory1 = new lime_utils_ByteArray(totalMemory);
+			var memory1 = new openfl_utils_ByteArrayData(totalMemory);
 			memory1.position = 0;
 			var pixels = sourceBitmapData.getPixels(sourceRect);
 			if(copySource) memory1.writeBytes(pixels); else memory1.writeBytes(this.getPixels(targetRect));
@@ -26415,14 +25895,14 @@ openfl_display_BitmapData.prototype = {
 	}
 	,__fromBytes: function(bytes,rawAlpha,onload) {
 		var _g = this;
-		lime_graphics_Image.fromBytes(bytes,function(image) {
+		lime_graphics_Image.fromBytes(openfl_utils__$ByteArray_ByteArray_$Impl_$.toBytes(bytes),function(image) {
 			_g.__fromImage(image);
 			if(rawAlpha != null) {
 				lime_graphics_utils_ImageCanvasUtil.convertToCanvas(image);
 				lime_graphics_utils_ImageCanvasUtil.createImageData(image);
 				var data = image.buffer.data;
 				var _g2 = 0;
-				var _g1 = rawAlpha.length;
+				var _g1 = openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length(rawAlpha);
 				while(_g2 < _g1) {
 					var i = _g2++;
 					var val = rawAlpha.readUnsignedByte();
@@ -26485,8 +25965,11 @@ openfl_display_BitmapData.prototype = {
 	,__renderGL: function(renderSession) {
 		renderSession.spriteBatch.renderBitmapData(this,false,this.__worldTransform,this.__worldColorTransform,this.__worldColorTransform.alphaMultiplier,this.__blendMode,this.__shader);
 	}
-	,__updateTransforms: function(overrideTransform) {
-		if(overrideTransform == null) this.__worldTransform.identity(); else this.__worldTransform = overrideTransform;
+	,__resize: function(width,height) {
+		this.width = width;
+		this.height = height;
+		this.rect.width = width;
+		this.rect.height = height;
 	}
 	,__sync: function() {
 		lime_graphics_utils_ImageCanvasUtil.sync(this.image,false);
@@ -26495,11 +25978,8 @@ openfl_display_BitmapData.prototype = {
 	}
 	,__updateMask: function(maskGraphics) {
 	}
-	,__resize: function(width,height) {
-		this.width = width;
-		this.height = height;
-		this.rect.width = width;
-		this.rect.height = height;
+	,__updateTransforms: function(overrideTransform) {
+		if(overrideTransform == null) this.__worldTransform.identity(); else this.__worldTransform = overrideTransform;
 	}
 	,__class__: openfl_display_BitmapData
 };
@@ -26524,7 +26004,7 @@ openfl_display_TextureUvs.prototype = {
 var openfl_display_BitmapDataChannel = function() { };
 $hxClasses["openfl.display.BitmapDataChannel"] = openfl_display_BitmapDataChannel;
 openfl_display_BitmapDataChannel.__name__ = ["openfl","display","BitmapDataChannel"];
-var openfl_display_BlendMode = $hxClasses["openfl.display.BlendMode"] = { __ename__ : true, __constructs__ : ["ADD","ALPHA","DARKEN","DIFFERENCE","ERASE","HARDLIGHT","INVERT","LAYER","LIGHTEN","MULTIPLY","NORMAL","OVERLAY","SCREEN","SUBTRACT"] };
+var openfl_display_BlendMode = $hxClasses["openfl.display.BlendMode"] = { __ename__ : true, __constructs__ : ["ADD","ALPHA","DARKEN","DIFFERENCE","ERASE","HARDLIGHT","INVERT","LAYER","LIGHTEN","MULTIPLY","NORMAL","OVERLAY","SCREEN","SHADER","SUBTRACT"] };
 openfl_display_BlendMode.ADD = ["ADD",0];
 openfl_display_BlendMode.ADD.toString = $estr;
 openfl_display_BlendMode.ADD.__enum__ = openfl_display_BlendMode;
@@ -26564,7 +26044,10 @@ openfl_display_BlendMode.OVERLAY.__enum__ = openfl_display_BlendMode;
 openfl_display_BlendMode.SCREEN = ["SCREEN",12];
 openfl_display_BlendMode.SCREEN.toString = $estr;
 openfl_display_BlendMode.SCREEN.__enum__ = openfl_display_BlendMode;
-openfl_display_BlendMode.SUBTRACT = ["SUBTRACT",13];
+openfl_display_BlendMode.SHADER = ["SHADER",13];
+openfl_display_BlendMode.SHADER.toString = $estr;
+openfl_display_BlendMode.SHADER.__enum__ = openfl_display_BlendMode;
+openfl_display_BlendMode.SUBTRACT = ["SUBTRACT",14];
 openfl_display_BlendMode.SUBTRACT.toString = $estr;
 openfl_display_BlendMode.SUBTRACT.__enum__ = openfl_display_BlendMode;
 var openfl_display_CapsStyle = $hxClasses["openfl.display.CapsStyle"] = { __ename__ : true, __constructs__ : ["NONE","ROUND","SQUARE"] };
@@ -26931,8 +26414,8 @@ openfl_display_Graphics.prototype = {
 					if(useTransform) {
 						rect.setTo(0,0,tile.width,tile.height);
 						matrix.setTo(tileData[index + transformIndex],tileData[index + transformIndex + 1],tileData[index + transformIndex + 2],tileData[index + transformIndex + 3],0,0);
-						originX = tilePoint.x * tile.width;
-						originY = tilePoint.y * tile.height;
+						originX = tilePoint.x * scale;
+						originY = tilePoint.y * scale;
 						matrix.translate(x - (originX * matrix.a + originY * matrix.c + matrix.tx),y - (originX * matrix.b + originY * matrix.d + matrix.ty));
 						rect.__transform(rect,matrix);
 						this.__inflateBounds(rect.x,rect.y);
@@ -27586,13 +27069,13 @@ openfl_display_LineScaleMode.VERTICAL = ["VERTICAL",3];
 openfl_display_LineScaleMode.VERTICAL.toString = $estr;
 openfl_display_LineScaleMode.VERTICAL.__enum__ = openfl_display_LineScaleMode;
 var openfl_display_Loader = function() {
-	openfl_display_Sprite.call(this);
+	openfl_display_DisplayObjectContainer.call(this);
 	this.contentLoaderInfo = openfl_display_LoaderInfo.create(this);
 };
 $hxClasses["openfl.display.Loader"] = openfl_display_Loader;
 openfl_display_Loader.__name__ = ["openfl","display","Loader"];
-openfl_display_Loader.__super__ = openfl_display_Sprite;
-openfl_display_Loader.prototype = $extend(openfl_display_Sprite.prototype,{
+openfl_display_Loader.__super__ = openfl_display_DisplayObjectContainer;
+openfl_display_Loader.prototype = $extend(openfl_display_DisplayObjectContainer.prototype,{
 	close: function() {
 		openfl_Lib.notImplemented("Loader.close");
 	}
@@ -27633,7 +27116,7 @@ openfl_display_Loader.prototype = $extend(openfl_display_Sprite.prototype,{
 		worker.onComplete.add($bind(this,this.BitmapData_onLoad));
 		worker.run();
 	}
-	,loadBytes: function(buffer) {
+	,loadBytes: function(buffer,context) {
 		var worker = new lime_system_BackgroundWorker();
 		worker.doWork.add(function(_) {
 			openfl_display_BitmapData.fromBytes(buffer,null,function(bitmapData) {
@@ -28860,7 +28343,7 @@ openfl_display_Stage.prototype = $extend(openfl_display_DisplayObjectContainer.p
 		var stack = [];
 		var target = null;
 		var targetPoint = new openfl_geom_Point(x,y);
-		if(this.__hitTest(x,y,true,stack,true)) target = stack[stack.length - 1]; else {
+		if(this.__hitTest(x,y,true,stack,true,this)) target = stack[stack.length - 1]; else {
 			target = this;
 			stack = [this];
 		}
@@ -28934,7 +28417,7 @@ openfl_display_Stage.prototype = $extend(openfl_display_DisplayObjectContainer.p
 		var x = this.__mouseX;
 		var y = this.__mouseY;
 		var stack = [];
-		if(!this.__hitTest(x,y,false,stack,true)) stack = [this];
+		if(!this.__hitTest(x,y,false,stack,true,this)) stack = [this];
 		var target = stack[stack.length - 1];
 		var targetPoint = new openfl_geom_Point(x,y);
 		var delta = deltaY | 0;
@@ -28945,7 +28428,7 @@ openfl_display_Stage.prototype = $extend(openfl_display_DisplayObjectContainer.p
 		this.__mouseX = point.x;
 		this.__mouseY = point.y;
 		var __stack = [];
-		if(this.__hitTest(touch.x,touch.y,false,__stack,true)) {
+		if(this.__hitTest(this.__mouseX,this.__mouseY,false,__stack,true,this)) {
 			var target = __stack[__stack.length - 1];
 			if(target == null) target = this;
 			var localPoint = target.globalToLocal(point);
@@ -29217,6 +28700,9 @@ openfl_display_Window.prototype = $extend(lime_ui_Window.prototype,{
 });
 var openfl_display3D_Context3D = function() {
 	this.disposed = false;
+	this.stencilCompareMode = 519;
+	this.stencilRef = 0;
+	this.stencilReadMask = 255;
 	this._yFlip = 1;
 	this.vertexBuffersCreated = [];
 	this.indexBuffersCreated = [];
@@ -29278,8 +28764,9 @@ openfl_display3D_Context3D.prototype = {
 		this.texturesCreated.push(texture);
 		return texture;
 	}
-	,createIndexBuffer: function(numIndices) {
-		var indexBuffer = new openfl_display3D_IndexBuffer3D(this,lime_graphics_opengl_GL.context.createBuffer(),numIndices);
+	,createIndexBuffer: function(numIndices,bufferUsage) {
+		if(bufferUsage == null) bufferUsage = openfl_display3D_Context3DBufferUsage.STATIC_DRAW;
+		var indexBuffer = new openfl_display3D_IndexBuffer3D(this,lime_graphics_opengl_GL.context.createBuffer(),numIndices,bufferUsage == openfl_display3D_Context3DBufferUsage.STATIC_DRAW?35044:35048);
 		this.indexBuffersCreated.push(indexBuffer);
 		return indexBuffer;
 	}
@@ -29299,8 +28786,9 @@ openfl_display3D_Context3D.prototype = {
 		this.texturesCreated.push(texture);
 		return texture;
 	}
-	,createVertexBuffer: function(numVertices,data32PerVertex) {
-		var vertexBuffer = new openfl_display3D_VertexBuffer3D(this,lime_graphics_opengl_GL.context.createBuffer(),numVertices,data32PerVertex);
+	,createVertexBuffer: function(numVertices,data32PerVertex,bufferUsage) {
+		if(bufferUsage == null) bufferUsage = openfl_display3D_Context3DBufferUsage.STATIC_DRAW;
+		var vertexBuffer = new openfl_display3D_VertexBuffer3D(this,lime_graphics_opengl_GL.context.createBuffer(),numVertices,data32PerVertex,bufferUsage == openfl_display3D_Context3DBufferUsage.STATIC_DRAW?35044:35048);
 		this.vertexBuffersCreated.push(vertexBuffer);
 		return vertexBuffer;
 	}
@@ -29832,9 +29320,28 @@ openfl_display3D__$Context3D_SamplerState.__name__ = ["openfl","display3D","_Con
 openfl_display3D__$Context3D_SamplerState.prototype = {
 	__class__: openfl_display3D__$Context3D_SamplerState
 };
+var openfl_display3D_Context3DBufferUsage = $hxClasses["openfl.display3D.Context3DBufferUsage"] = { __ename__ : true, __constructs__ : ["STATIC_DRAW","DYNAMIC_DRAW"] };
+openfl_display3D_Context3DBufferUsage.STATIC_DRAW = ["STATIC_DRAW",0];
+openfl_display3D_Context3DBufferUsage.STATIC_DRAW.toString = $estr;
+openfl_display3D_Context3DBufferUsage.STATIC_DRAW.__enum__ = openfl_display3D_Context3DBufferUsage;
+openfl_display3D_Context3DBufferUsage.DYNAMIC_DRAW = ["DYNAMIC_DRAW",1];
+openfl_display3D_Context3DBufferUsage.DYNAMIC_DRAW.toString = $estr;
+openfl_display3D_Context3DBufferUsage.DYNAMIC_DRAW.__enum__ = openfl_display3D_Context3DBufferUsage;
 var openfl_display3D_Context3DClearMask = function() { };
 $hxClasses["openfl.display3D.Context3DClearMask"] = openfl_display3D_Context3DClearMask;
 openfl_display3D_Context3DClearMask.__name__ = ["openfl","display3D","Context3DClearMask"];
+var openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$ = {};
+$hxClasses["openfl.display3D._Context3DCompareMode.Context3DCompareMode_Impl_"] = openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$;
+openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$.__name__ = ["openfl","display3D","_Context3DCompareMode","Context3DCompareMode_Impl_"];
+openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$._new = function(a) {
+	return a;
+};
+openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$.fromInt = function(s) {
+	return s;
+};
+openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$.toInt = function(this1) {
+	return this1;
+};
 var openfl_display3D_Context3DMipFilter = $hxClasses["openfl.display3D.Context3DMipFilter"] = { __ename__ : true, __constructs__ : ["MIPLINEAR","MIPNEAREST","MIPNONE"] };
 openfl_display3D_Context3DMipFilter.MIPLINEAR = ["MIPLINEAR",0];
 openfl_display3D_Context3DMipFilter.MIPLINEAR.toString = $estr;
@@ -29916,10 +29423,11 @@ openfl_display3D_Context3DWrapMode.CLAMP.__enum__ = openfl_display3D_Context3DWr
 openfl_display3D_Context3DWrapMode.REPEAT = ["REPEAT",1];
 openfl_display3D_Context3DWrapMode.REPEAT.toString = $estr;
 openfl_display3D_Context3DWrapMode.REPEAT.__enum__ = openfl_display3D_Context3DWrapMode;
-var openfl_display3D_IndexBuffer3D = function(context,glBuffer,numIndices) {
+var openfl_display3D_IndexBuffer3D = function(context,glBuffer,numIndices,bufferUsage) {
 	this.context = context;
 	this.glBuffer = glBuffer;
 	this.numIndices = numIndices;
+	this.bufferUsage = bufferUsage;
 };
 $hxClasses["openfl.display3D.IndexBuffer3D"] = openfl_display3D_IndexBuffer3D;
 openfl_display3D_IndexBuffer3D.__name__ = ["openfl","display3D","IndexBuffer3D"];
@@ -29943,7 +29451,7 @@ openfl_display3D_IndexBuffer3D.prototype = {
 			indices[i] = val;
 			i++;
 		}
-		lime_graphics_opengl_GL.context.bufferData(34963,indices,35044);
+		lime_graphics_opengl_GL.context.bufferData(34963,indices,this.bufferUsage);
 	}
 	,uploadFromVector: function(data,startOffset,count) {
 		lime_graphics_opengl_GL.context.bindBuffer(34963,this.glBuffer);
@@ -29957,7 +29465,11 @@ openfl_display3D_IndexBuffer3D.prototype = {
 			var i = _g1++;
 			indices[i] = data.data[i];
 		}
-		lime_graphics_opengl_GL.context.bufferData(34963,indices,35044);
+		lime_graphics_opengl_GL.context.bufferData(34963,indices,this.bufferUsage);
+	}
+	,uploadFromInt16Array: function(data) {
+		lime_graphics_opengl_GL.context.bindBuffer(34963,this.glBuffer);
+		lime_graphics_opengl_GL.context.bufferData(34963,data,this.bufferUsage);
 	}
 	,__class__: openfl_display3D_IndexBuffer3D
 };
@@ -29982,11 +29494,12 @@ openfl_display3D_Program3D.prototype = {
 	}
 	,__class__: openfl_display3D_Program3D
 };
-var openfl_display3D_VertexBuffer3D = function(context,glBuffer,numVertices,data32PerVertex) {
+var openfl_display3D_VertexBuffer3D = function(context,glBuffer,numVertices,data32PerVertex,bufferUsage) {
 	this.context = context;
 	this.glBuffer = glBuffer;
 	this.numVertices = numVertices;
 	this.data32PerVertex = data32PerVertex;
+	this.bufferUsage = bufferUsage;
 };
 $hxClasses["openfl.display3D.VertexBuffer3D"] = openfl_display3D_VertexBuffer3D;
 openfl_display3D_VertexBuffer3D.__name__ = ["openfl","display3D","VertexBuffer3D"];
@@ -30010,11 +29523,11 @@ openfl_display3D_VertexBuffer3D.prototype = {
 			float32Array[i] = val;
 			i++;
 		}
-		lime_graphics_opengl_GL.context.bufferData(34962,float32Array,35044);
+		lime_graphics_opengl_GL.context.bufferData(34962,float32Array,this.bufferUsage);
 	}
-	,uploadFromFloat32Array: function(data,startVertex,numVertices) {
+	,uploadFromFloat32Array: function(data) {
 		lime_graphics_opengl_GL.context.bindBuffer(34962,this.glBuffer);
-		lime_graphics_opengl_GL.context.bufferData(34962,data,35044);
+		lime_graphics_opengl_GL.context.bufferData(34962,data,this.bufferUsage);
 	}
 	,uploadFromVector: function(data,startVertex,numVertices) {
 		var bytesPerVertex = this.data32PerVertex * 4;
@@ -30031,7 +29544,7 @@ openfl_display3D_VertexBuffer3D.prototype = {
 			var i = _g1++;
 			float32Array[i] = data.data[i];
 		}
-		lime_graphics_opengl_GL.context.bufferData(34962,float32Array,35044);
+		lime_graphics_opengl_GL.context.bufferData(34962,float32Array,this.bufferUsage);
 		float32Array = null;
 	}
 	,__class__: openfl_display3D_VertexBuffer3D
@@ -30119,7 +29632,7 @@ openfl_display3D_textures_RectangleTexture.__super__ = openfl_display3D_textures
 openfl_display3D_textures_RectangleTexture.prototype = $extend(openfl_display3D_textures_TextureBase.prototype,{
 	uploadFromBitmapData: function(bitmapData,miplevel) {
 		if(miplevel == null) miplevel = 0;
-		var p = lime_utils_ByteArray.__ofBuffer(bitmapData.image.get_data().buffer);
+		var p = openfl_utils__$ByteArray_ByteArray_$Impl_$.fromArrayBuffer(bitmapData.image.get_data().buffer);
 		this.width = bitmapData.width;
 		this.height = bitmapData.height;
 		this.uploadFromByteArray(p,0);
@@ -30132,13 +29645,13 @@ openfl_display3D_textures_RectangleTexture.prototype = $extend(openfl_display3D_
 		lime_graphics_opengl_GL.context.texParameteri(3553,10242,33071);
 		lime_graphics_opengl_GL.context.texParameteri(3553,10243,33071);
 		var source;
-		var elements = data.length;
+		var elements = openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length(data);
 		var this1;
 		if(elements != null) this1 = new Uint8Array(elements); else this1 = null;
 		source = this1;
 		data.position = byteArrayOffset;
 		var i = 0;
-		while(data.position < data.length) {
+		while(data.position < openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length(data)) {
 			var val = data.readUnsignedByte();
 			source[i] = val;
 			i++;
@@ -30175,13 +29688,13 @@ openfl_display3D_textures_Texture.prototype = $extend(openfl_display3D_textures_
 	,uploadFromByteArray: function(data,byteArrayOffset,miplevel) {
 		if(miplevel == null) miplevel = 0;
 		var source;
-		var elements = data.length;
+		var elements = openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length(data);
 		var this1;
 		if(elements != null) this1 = new Uint8Array(elements); else this1 = null;
 		source = this1;
 		data.position = byteArrayOffset;
 		var i = 0;
-		while(data.position < data.length) {
+		while(data.position < openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length(data)) {
 			var val = data.readUnsignedByte();
 			source[i] = val;
 			i++;
@@ -30243,6 +29756,17 @@ openfl_errors_IOError.__super__ = openfl_errors_Error;
 openfl_errors_IOError.prototype = $extend(openfl_errors_Error.prototype,{
 	__class__: openfl_errors_IOError
 });
+var openfl_errors_EOFError = function() {
+	openfl_errors_IOError.call(this,"End of file was encountered");
+	this.name = "EOFError";
+	this.errorID = 2030;
+};
+$hxClasses["openfl.errors.EOFError"] = openfl_errors_EOFError;
+openfl_errors_EOFError.__name__ = ["openfl","errors","EOFError"];
+openfl_errors_EOFError.__super__ = openfl_errors_IOError;
+openfl_errors_EOFError.prototype = $extend(openfl_errors_IOError.prototype,{
+	__class__: openfl_errors_EOFError
+});
 var openfl_errors_RangeError = function(message) {
 	if(message == null) message = "";
 	openfl_errors_Error.call(this,message,0);
@@ -30283,6 +29807,15 @@ openfl_events_Event.prototype = {
 		event.currentTarget = this.currentTarget;
 		return event;
 	}
+	,formatToString: function(className,p1,p2,p3,p4,p5) {
+		var parameters = [];
+		if(p1 != null) parameters.push(p1);
+		if(p2 != null) parameters.push(p2);
+		if(p3 != null) parameters.push(p3);
+		if(p4 != null) parameters.push(p4);
+		if(p5 != null) parameters.push(p5);
+		return $bind(this,this.__formatToString).apply(this,[className,parameters]);
+	}
 	,isDefaultPrevented: function() {
 		return this.__preventDefault;
 	}
@@ -30297,10 +29830,46 @@ openfl_events_Event.prototype = {
 		this.__isCancelled = true;
 	}
 	,toString: function() {
-		return "[Event type=\"" + this.type + "\" bubbles=" + Std.string(this.bubbles) + " cancelable=" + Std.string(this.cancelable) + "]";
+		return this.__formatToString("Event",["type","bubbles","cancelable"]);
+	}
+	,__formatToString: function(className,parameters) {
+		var output = "[" + className;
+		var arg = null;
+		var _g = 0;
+		while(_g < parameters.length) {
+			var param = parameters[_g];
+			++_g;
+			arg = Reflect.field(this,param);
+			if(typeof(arg) == "string") output += " " + param + "=\"" + Std.string(arg) + "\""; else output += " " + param + "=" + Std.string(arg);
+		}
+		output += "]";
+		return output;
 	}
 	,__class__: openfl_events_Event
 };
+var openfl_events_ActivityEvent = function(type,bubbles,cancelable,activating) {
+	if(activating == null) activating = false;
+	if(cancelable == null) cancelable = false;
+	if(bubbles == null) bubbles = false;
+	openfl_events_Event.call(this,type,bubbles,cancelable);
+	this.activating = activating;
+};
+$hxClasses["openfl.events.ActivityEvent"] = openfl_events_ActivityEvent;
+openfl_events_ActivityEvent.__name__ = ["openfl","events","ActivityEvent"];
+openfl_events_ActivityEvent.__super__ = openfl_events_Event;
+openfl_events_ActivityEvent.prototype = $extend(openfl_events_Event.prototype,{
+	clone: function() {
+		var event = new openfl_events_ActivityEvent(this.type,this.bubbles,this.cancelable,this.activating);
+		event.target = this.target;
+		event.currentTarget = this.currentTarget;
+		event.eventPhase = this.eventPhase;
+		return event;
+	}
+	,toString: function() {
+		return this.__formatToString("ActivityEvent",["type","bubbles","cancelable","activating"]);
+	}
+	,__class__: openfl_events_ActivityEvent
+});
 var openfl_events_TextEvent = function(type,bubbles,cancelable,text) {
 	if(text == null) text = "";
 	if(cancelable == null) cancelable = false;
@@ -30313,10 +29882,14 @@ openfl_events_TextEvent.__name__ = ["openfl","events","TextEvent"];
 openfl_events_TextEvent.__super__ = openfl_events_Event;
 openfl_events_TextEvent.prototype = $extend(openfl_events_Event.prototype,{
 	clone: function() {
-		return new openfl_events_TextEvent(this.type,this.bubbles,this.cancelable,this.text);
+		var event = new openfl_events_TextEvent(this.type,this.bubbles,this.cancelable,this.text);
+		event.target = this.target;
+		event.currentTarget = this.currentTarget;
+		event.eventPhase = this.eventPhase;
+		return event;
 	}
 	,toString: function() {
-		return "[TextEvent type=\"" + this.type + "\" bubbles=" + Std.string(this.bubbles) + " cancelable=" + Std.string(this.cancelable) + " text=\"" + this.text + "\"]";
+		return this.__formatToString("TextEvent",["type","bubbles","cancelable","text"]);
 	}
 	,__class__: openfl_events_TextEvent
 });
@@ -30333,10 +29906,14 @@ openfl_events_ErrorEvent.__name__ = ["openfl","events","ErrorEvent"];
 openfl_events_ErrorEvent.__super__ = openfl_events_TextEvent;
 openfl_events_ErrorEvent.prototype = $extend(openfl_events_TextEvent.prototype,{
 	clone: function() {
-		return new openfl_events_ErrorEvent(this.type,this.bubbles,this.cancelable,this.text,this.errorID);
+		var event = new openfl_events_ErrorEvent(this.type,this.bubbles,this.cancelable,this.text,this.errorID);
+		event.target = this.target;
+		event.currentTarget = this.currentTarget;
+		event.eventPhase = this.eventPhase;
+		return event;
 	}
 	,toString: function() {
-		return "[ErrorEvent type=\"" + this.type + "\" bubbles=" + Std.string(this.bubbles) + " cancelable=" + Std.string(this.cancelable) + " text=" + this.text + " errorID=" + this.errorID + "]";
+		return this.__formatToString("ErrorEvent",["type","bubbles","cancelable","text","errorID"]);
 	}
 	,__class__: openfl_events_ErrorEvent
 });
@@ -30385,7 +29962,7 @@ openfl_events_FocusEvent.prototype = $extend(openfl_events_Event.prototype,{
 		return event;
 	}
 	,toString: function() {
-		return "[FocusEvent type=\"" + this.type + "\" bubbles=" + Std.string(this.bubbles) + " cancelable=" + Std.string(this.cancelable) + " relatedObject=" + Std.string(this.relatedObject) + " shiftKey=" + Std.string(this.shiftKey) + " keyCode=" + this.keyCode + "]";
+		return this.__formatToString("FocusEvent",["type","bubbles","cancelable","relatedObject","shiftKey","keyCode"]);
 	}
 	,__class__: openfl_events_FocusEvent
 });
@@ -30394,14 +29971,14 @@ var openfl_events_FullScreenEvent = function(type,bubbles,cancelable,fullScreen,
 	if(fullScreen == null) fullScreen = false;
 	if(cancelable == null) cancelable = false;
 	if(bubbles == null) bubbles = false;
-	openfl_events_Event.call(this,type,bubbles,cancelable);
+	openfl_events_ActivityEvent.call(this,type,bubbles,cancelable);
 	this.fullScreen = fullScreen;
 	this.interactive = interactive;
 };
 $hxClasses["openfl.events.FullScreenEvent"] = openfl_events_FullScreenEvent;
 openfl_events_FullScreenEvent.__name__ = ["openfl","events","FullScreenEvent"];
-openfl_events_FullScreenEvent.__super__ = openfl_events_Event;
-openfl_events_FullScreenEvent.prototype = $extend(openfl_events_Event.prototype,{
+openfl_events_FullScreenEvent.__super__ = openfl_events_ActivityEvent;
+openfl_events_FullScreenEvent.prototype = $extend(openfl_events_ActivityEvent.prototype,{
 	clone: function() {
 		var event = new openfl_events_FullScreenEvent(this.type,this.bubbles,this.cancelable,this.fullScreen,this.interactive);
 		event.target = this.target;
@@ -30410,7 +29987,7 @@ openfl_events_FullScreenEvent.prototype = $extend(openfl_events_Event.prototype,
 		return event;
 	}
 	,toString: function() {
-		return "[FullscreenEvent type=\"" + this.type + "\" bubbles=" + Std.string(this.bubbles) + " cancelable=" + Std.string(this.cancelable) + " fullscreen=" + Std.string(this.fullScreen) + " interactive=" + Std.string(this.interactive) + "]";
+		return this.__formatToString("FullscreenEvent",["type","bubbles","cancelable","fullscreen","interactive"]);
 	}
 	,__class__: openfl_events_FullScreenEvent
 });
@@ -30425,25 +30002,41 @@ openfl_events_GameInputEvent.__name__ = ["openfl","events","GameInputEvent"];
 openfl_events_GameInputEvent.__super__ = openfl_events_Event;
 openfl_events_GameInputEvent.prototype = $extend(openfl_events_Event.prototype,{
 	clone: function() {
-		return new openfl_events_GameInputEvent(this.type,this.bubbles,this.cancelable,this.device);
+		var event = new openfl_events_GameInputEvent(this.type,this.bubbles,this.cancelable,this.device);
+		event.target = this.target;
+		event.currentTarget = this.currentTarget;
+		event.eventPhase = this.eventPhase;
+		return event;
 	}
 	,toString: function() {
-		return "[GameInputEvent type=\"" + this.type + "\" bubbles=" + Std.string(this.bubbles) + " cancelable=" + Std.string(this.cancelable) + " device=" + Std.string(this.device) + "]";
+		return this.__formatToString("GameInputEvent",["type","bubbles","cancelable","device"]);
 	}
 	,__class__: openfl_events_GameInputEvent
 });
-var openfl_events_HTTPStatusEvent = function(type,bubbles,cancelable,status) {
+var openfl_events_HTTPStatusEvent = function(type,bubbles,cancelable,status,redirected) {
+	if(redirected == null) redirected = false;
 	if(status == null) status = 0;
 	if(cancelable == null) cancelable = false;
 	if(bubbles == null) bubbles = false;
 	this.status = status;
+	this.redirected = redirected;
 	openfl_events_Event.call(this,type,bubbles,cancelable);
 };
 $hxClasses["openfl.events.HTTPStatusEvent"] = openfl_events_HTTPStatusEvent;
 openfl_events_HTTPStatusEvent.__name__ = ["openfl","events","HTTPStatusEvent"];
 openfl_events_HTTPStatusEvent.__super__ = openfl_events_Event;
 openfl_events_HTTPStatusEvent.prototype = $extend(openfl_events_Event.prototype,{
-	__class__: openfl_events_HTTPStatusEvent
+	clone: function() {
+		var event = new openfl_events_HTTPStatusEvent(this.type,this.bubbles,null,this.status,this.redirected);
+		event.target = this.target;
+		event.currentTarget = this.currentTarget;
+		event.eventPhase = this.eventPhase;
+		return event;
+	}
+	,toString: function() {
+		return this.__formatToString("HTTPStatusEvent",["type","bubbles","cancelable","status","redirected"]);
+	}
+	,__class__: openfl_events_HTTPStatusEvent
 });
 var openfl_events_IOErrorEvent = function(type,bubbles,cancelable,text,id) {
 	if(id == null) id = 0;
@@ -30457,10 +30050,14 @@ openfl_events_IOErrorEvent.__name__ = ["openfl","events","IOErrorEvent"];
 openfl_events_IOErrorEvent.__super__ = openfl_events_ErrorEvent;
 openfl_events_IOErrorEvent.prototype = $extend(openfl_events_ErrorEvent.prototype,{
 	clone: function() {
-		return new openfl_events_IOErrorEvent(this.type,this.bubbles,this.cancelable,this.text,this.errorID);
+		var event = new openfl_events_IOErrorEvent(this.type,this.bubbles,this.cancelable,this.text,this.errorID);
+		event.target = this.target;
+		event.currentTarget = this.currentTarget;
+		event.eventPhase = this.eventPhase;
+		return event;
 	}
 	,toString: function() {
-		return "[IOErrorEvent type=\"" + this.type + "\" bubbles=" + Std.string(this.bubbles) + " cancelable=" + Std.string(this.cancelable) + " text=" + this.text + " errorID=" + this.errorID + "]";
+		return this.__formatToString("IOErrorEvent",["type","bubbles","cancelable","text","errorID"]);
 	}
 	,__class__: openfl_events_IOErrorEvent
 });
@@ -30489,10 +30086,14 @@ openfl_events_KeyboardEvent.__name__ = ["openfl","events","KeyboardEvent"];
 openfl_events_KeyboardEvent.__super__ = openfl_events_Event;
 openfl_events_KeyboardEvent.prototype = $extend(openfl_events_Event.prototype,{
 	clone: function() {
-		return new openfl_events_KeyboardEvent(this.type,this.bubbles,this.cancelable,this.charCode,this.keyCode,this.keyLocation,this.ctrlKey,this.altKey,this.shiftKey,this.controlKey,this.commandKey);
+		var event = new openfl_events_KeyboardEvent(this.type,this.bubbles,this.cancelable,this.charCode,this.keyCode,this.keyLocation,this.ctrlKey,this.altKey,this.shiftKey,this.controlKey,this.commandKey);
+		event.target = this.target;
+		event.currentTarget = this.currentTarget;
+		event.eventPhase = this.eventPhase;
+		return event;
 	}
 	,toString: function() {
-		return "[KeyboardEvent type=\"" + this.type + "\" bubbles=" + Std.string(this.bubbles) + " cancelable=" + Std.string(this.cancelable) + " charCode=" + this.charCode + " keyCode=" + this.keyCode + " keyLocation=" + this.keyLocation + " ctrlKey=" + Std.string(this.ctrlKey) + " altKey=" + Std.string(this.altKey) + " shiftKey=" + Std.string(this.shiftKey) + "]";
+		return this.__formatToString("KeyboardEvent",["type","bubbles","cancelable","charCode","keyCode","keyLocation","ctrlKey","altKey","shiftKey"]);
 	}
 	,__class__: openfl_events_KeyboardEvent
 });
@@ -30548,10 +30149,14 @@ openfl_events_MouseEvent.__create = function(type,button,stageX,stageY,local,tar
 openfl_events_MouseEvent.__super__ = openfl_events_Event;
 openfl_events_MouseEvent.prototype = $extend(openfl_events_Event.prototype,{
 	clone: function() {
-		return new openfl_events_MouseEvent(this.type,this.bubbles,this.cancelable,this.localX,this.localY,this.relatedObject,this.ctrlKey,this.altKey,this.shiftKey,this.buttonDown,this.delta,this.commandKey,this.clickCount);
+		var event = new openfl_events_MouseEvent(this.type,this.bubbles,this.cancelable,this.localX,this.localY,this.relatedObject,this.ctrlKey,this.altKey,this.shiftKey,this.buttonDown,this.delta,this.commandKey,this.clickCount);
+		event.target = this.target;
+		event.currentTarget = this.currentTarget;
+		event.eventPhase = this.eventPhase;
+		return event;
 	}
 	,toString: function() {
-		return "[MouseEvent type=\"" + this.type + "\" bubbles=" + Std.string(this.bubbles) + " cancelable=" + Std.string(this.cancelable) + " localX=" + this.localX + " localY=" + this.localY + " relatedObject=" + Std.string(this.relatedObject) + " ctrlKey=" + Std.string(this.ctrlKey) + " altKey=" + Std.string(this.altKey) + " shiftKey=" + Std.string(this.shiftKey) + " buttonDown=" + Std.string(this.buttonDown) + " delta=" + this.delta + "]";
+		return this.__formatToString("MouseEvent",["type","bubbles","cancelable","localX","localY","relatedObject","ctrlKey","altKey","shiftKey","buttonDown","delta"]);
 	}
 	,updateAfterEvent: function() {
 	}
@@ -30571,10 +30176,14 @@ openfl_events_ProgressEvent.__name__ = ["openfl","events","ProgressEvent"];
 openfl_events_ProgressEvent.__super__ = openfl_events_Event;
 openfl_events_ProgressEvent.prototype = $extend(openfl_events_Event.prototype,{
 	clone: function() {
-		return new openfl_events_ProgressEvent(this.type,this.bubbles,this.cancelable,this.bytesLoaded,this.bytesTotal);
+		var event = new openfl_events_ProgressEvent(this.type,this.bubbles,this.cancelable,this.bytesLoaded,this.bytesTotal);
+		event.target = this.target;
+		event.currentTarget = this.currentTarget;
+		event.eventPhase = this.eventPhase;
+		return event;
 	}
 	,toString: function() {
-		return "[ProgressEvent type=\"" + this.type + "\" bubbles=" + Std.string(this.bubbles) + " cancelable=" + Std.string(this.cancelable) + " bytesLoaded=" + this.bytesLoaded + " bytesTotal=" + this.bytesTotal + "]";
+		return this.__formatToString("ProgressEvent",["type","bubbles","cancelable","bytesLoaded","bytesTotal"]);
 	}
 	,__class__: openfl_events_ProgressEvent
 });
@@ -30590,10 +30199,14 @@ openfl_events_SecurityErrorEvent.__name__ = ["openfl","events","SecurityErrorEve
 openfl_events_SecurityErrorEvent.__super__ = openfl_events_ErrorEvent;
 openfl_events_SecurityErrorEvent.prototype = $extend(openfl_events_ErrorEvent.prototype,{
 	clone: function() {
-		return new openfl_events_SecurityErrorEvent(this.type,this.bubbles,this.cancelable,this.text,this.errorID);
+		var event = new openfl_events_SecurityErrorEvent(this.type,this.bubbles,this.cancelable,this.text,this.errorID);
+		event.target = this.target;
+		event.currentTarget = this.currentTarget;
+		event.eventPhase = this.eventPhase;
+		return event;
 	}
 	,toString: function() {
-		return "[SecurityErrorEvent type=\"" + this.type + "\" bubbles=" + Std.string(this.bubbles) + " cancelable=" + Std.string(this.cancelable) + " text=" + this.text + " errorID=" + this.errorID + "]";
+		return this.__formatToString("SecurityErrorEvent",["type","bubbles","cancelable","text","errorID"]);
 	}
 	,__class__: openfl_events_SecurityErrorEvent
 });
@@ -30607,50 +30220,55 @@ openfl_events_TimerEvent.__name__ = ["openfl","events","TimerEvent"];
 openfl_events_TimerEvent.__super__ = openfl_events_Event;
 openfl_events_TimerEvent.prototype = $extend(openfl_events_Event.prototype,{
 	clone: function() {
-		return new openfl_events_TimerEvent(this.type,this.bubbles,this.cancelable);
+		var event = new openfl_events_TimerEvent(this.type,this.bubbles,this.cancelable);
+		event.target = this.target;
+		event.currentTarget = this.currentTarget;
+		event.eventPhase = this.eventPhase;
+		return event;
 	}
 	,toString: function() {
-		return "[TimerEvent type=\"" + this.type + "\" bubbles=" + Std.string(this.bubbles) + " cancelable=" + Std.string(this.cancelable) + "]";
+		return this.__formatToString("TimerEvent",["type","bubbles","cancelable"]);
 	}
 	,updateAfterEvent: function() {
 	}
 	,__class__: openfl_events_TimerEvent
 });
-var openfl_events_TouchEvent = function(type,bubbles,cancelable,localX,localY,sizeX,sizeY,relatedObject,ctrlKey,altKey,shiftKey,buttonDown,delta,commandKey,clickCount) {
-	if(clickCount == null) clickCount = 0;
+var openfl_events_TouchEvent = function(type,bubbles,cancelable,touchPointID,isPrimaryTouchPoint,localX,localY,sizeX,sizeY,pressure,relatedObject,ctrlKey,altKey,shiftKey,commandKey,controlKey,timestamp,touchIntent,samples,isTouchPointCanceled) {
+	if(isTouchPointCanceled == null) isTouchPointCanceled = false;
+	if(timestamp == null) timestamp = 0;
+	if(controlKey == null) controlKey = false;
 	if(commandKey == null) commandKey = false;
-	if(delta == null) delta = 0;
-	if(buttonDown == null) buttonDown = false;
 	if(shiftKey == null) shiftKey = false;
 	if(altKey == null) altKey = false;
 	if(ctrlKey == null) ctrlKey = false;
-	if(sizeY == null) sizeY = 1;
-	if(sizeX == null) sizeX = 1;
+	if(pressure == null) pressure = 0;
+	if(sizeY == null) sizeY = 0;
+	if(sizeX == null) sizeX = 0;
 	if(localY == null) localY = 0;
 	if(localX == null) localX = 0;
+	if(isPrimaryTouchPoint == null) isPrimaryTouchPoint = false;
+	if(touchPointID == null) touchPointID = 0;
 	if(cancelable == null) cancelable = false;
 	if(bubbles == null) bubbles = true;
 	openfl_events_Event.call(this,type,bubbles,cancelable);
-	this.shiftKey = shiftKey;
-	this.altKey = altKey;
-	this.ctrlKey = ctrlKey;
-	this.bubbles = bubbles;
-	this.relatedObject = relatedObject;
-	this.delta = delta;
+	this.touchPointID = touchPointID;
+	this.isPrimaryTouchPoint = isPrimaryTouchPoint;
 	this.localX = localX;
 	this.localY = localY;
 	this.sizeX = sizeX;
 	this.sizeY = sizeY;
-	this.buttonDown = buttonDown;
+	this.pressure = pressure;
+	this.relatedObject = relatedObject;
+	this.ctrlKey = ctrlKey;
+	this.altKey = altKey;
+	this.shiftKey = shiftKey;
 	this.commandKey = commandKey;
-	this.pressure = 1;
-	this.touchPointID = 0;
-	this.isPrimaryTouchPoint = true;
+	this.controlKey = controlKey;
 };
 $hxClasses["openfl.events.TouchEvent"] = openfl_events_TouchEvent;
 openfl_events_TouchEvent.__name__ = ["openfl","events","TouchEvent"];
 openfl_events_TouchEvent.__create = function(type,touch,stageX,stageY,local,target) {
-	var evt = new openfl_events_TouchEvent(type,true,false,local.x,local.y,1,1,null,false,false,false,false,0,false,0);
+	var evt = new openfl_events_TouchEvent(type,true,false,0,true,local.x,local.y,1,1,1);
 	evt.stageX = stageX;
 	evt.stageY = stageY;
 	evt.target = target;
@@ -30658,7 +30276,17 @@ openfl_events_TouchEvent.__create = function(type,touch,stageX,stageY,local,targ
 };
 openfl_events_TouchEvent.__super__ = openfl_events_Event;
 openfl_events_TouchEvent.prototype = $extend(openfl_events_Event.prototype,{
-	updateAfterEvent: function() {
+	clone: function() {
+		var event = new openfl_events_TouchEvent(this.type,this.bubbles,this.cancelable,this.touchPointID,this.isPrimaryTouchPoint,this.localX,this.localY,this.sizeX,this.sizeY,this.pressure,this.relatedObject,this.ctrlKey,this.altKey,this.shiftKey,this.commandKey,this.controlKey);
+		event.target = this.target;
+		event.currentTarget = this.currentTarget;
+		event.eventPhase = this.eventPhase;
+		return event;
+	}
+	,toString: function() {
+		return this.__formatToString("TouchEvent",["type","bubbles","cancelable","touchPointID","isPrimaryTouchPoint","localX","localY","sizeX","sizeY","pressure","relatedObject","ctrlKey","altKey","shiftKey","commandKey","controlKey"]);
+	}
+	,updateAfterEvent: function() {
 	}
 	,__class__: openfl_events_TouchEvent
 });
@@ -30670,18 +30298,6 @@ var openfl_filters_BitmapFilter = function() {
 $hxClasses["openfl.filters.BitmapFilter"] = openfl_filters_BitmapFilter;
 openfl_filters_BitmapFilter.__name__ = ["openfl","filters","BitmapFilter"];
 openfl_filters_BitmapFilter.__tmpRenderTexture = null;
-openfl_filters_BitmapFilter.__expandBounds = function(filters,rect,matrix) {
-	var r = openfl_geom_Rectangle.__temp;
-	r.setEmpty();
-	var _g = 0;
-	while(_g < filters.length) {
-		var filter = filters[_g];
-		++_g;
-		filter.__growBounds(r);
-	}
-	r.__transform(r,matrix);
-	rect.__expand(r.x,r.y,r.width,r.height);
-};
 openfl_filters_BitmapFilter.__applyFilters = function(filters,renderSession,source,target,sourceRect,destPoint) {
 	var same = target == source && target.__usingPingPongTexture;
 	if(same) target.__pingPongTexture.useOldTexture = true;
@@ -30716,6 +30332,18 @@ openfl_filters_BitmapFilter.__applyFilters = function(filters,renderSession,sour
 	}
 	source.__shader = srcShader;
 	if(same) target.__pingPongTexture.useOldTexture = false;
+};
+openfl_filters_BitmapFilter.__expandBounds = function(filters,rect,matrix) {
+	var r = openfl_geom_Rectangle.__temp;
+	r.setEmpty();
+	var _g = 0;
+	while(_g < filters.length) {
+		var filter = filters[_g];
+		++_g;
+		filter.__growBounds(r);
+	}
+	r.__transform(r,matrix);
+	rect.__expand(r.x,r.y,r.width,r.height);
 };
 openfl_filters_BitmapFilter.prototype = {
 	clone: function() {
@@ -30856,7 +30484,7 @@ openfl_geom_Matrix3D.interpolate = function(thisMat,toMat,percent) {
 	}
 	return m;
 };
-openfl_geom_Matrix3D.getAxisRotation = function(x,y,z,degrees) {
+openfl_geom_Matrix3D.__getAxisRotation = function(x,y,z,degrees) {
 	var m = new openfl_geom_Matrix3D();
 	var a1 = new openfl_geom_Vector3D(x,y,z);
 	var rad = -degrees * (Math.PI / 180);
@@ -31232,7 +30860,7 @@ openfl_geom_Matrix3D.prototype = {
 		this31.data[15] = m141 * m214 + m142 * m224 + m143 * m234 + m144 * m244;
 	}
 	,appendRotation: function(degrees,axis,pivotPoint) {
-		var m = openfl_geom_Matrix3D.getAxisRotation(axis.x,axis.y,axis.z,degrees);
+		var m = openfl_geom_Matrix3D.__getAxisRotation(axis.x,axis.y,axis.z,degrees);
 		if(pivotPoint != null) {
 			var p = pivotPoint;
 			m.appendTranslation(p.x,p.y,p.z);
@@ -31540,7 +31168,6 @@ openfl_geom_Matrix3D.prototype = {
 			this31.data[15] = vector3D.w;
 			break;
 		default:
-			throw new js__$Boot_HaxeError(new openfl_errors_Error("Error, Column " + column + " out of bounds [0, ..., 3]"));
 		}
 	}
 	,copyColumnTo: function(column,vector3D) {
@@ -31570,7 +31197,6 @@ openfl_geom_Matrix3D.prototype = {
 			vector3D.w = this.rawData.data[15];
 			break;
 		default:
-			throw new js__$Boot_HaxeError(new openfl_errors_Error("Error, Column " + column + " out of bounds [0, ..., 3]"));
 		}
 	}
 	,copyFrom: function(other) {
@@ -31588,13 +31214,13 @@ openfl_geom_Matrix3D.prototype = {
 		if(transpose == null) transpose = false;
 		if(index == null) index = 0;
 		if(transpose) this.transpose();
-		var l = vector.length - index;
+		var length = vector.length - index;
 		var _g = 0;
-		while(_g < l) {
-			var c = _g++;
+		while(_g < length) {
+			var i = _g++;
 			var this1 = this.rawData;
 			if(!this1.fixed) {
-				if(c >= this1.length) this1.length = c + 1;
+				if(i >= this1.length) this1.length = i + 1;
 				if(this1.data.length < this1.length) {
 					var data;
 					var this2;
@@ -31604,7 +31230,7 @@ openfl_geom_Matrix3D.prototype = {
 					this1.data = data;
 				}
 			}
-			this1.data[c] = vector.data[c + index];
+			this1.data[i] = vector.data[i + index];
 		}
 		if(transpose) this.transpose();
 	}
@@ -31612,11 +31238,11 @@ openfl_geom_Matrix3D.prototype = {
 		if(transpose == null) transpose = false;
 		if(index == null) index = 0;
 		if(transpose) this.transpose();
-		var l = this.rawData.length;
-		var _g = 0;
-		while(_g < l) {
-			var c = _g++;
-			var key = c + index;
+		var _g1 = 0;
+		var _g = this.rawData.length;
+		while(_g1 < _g) {
+			var i = _g1++;
+			var key = i + index;
 			if(!vector.fixed) {
 				if(key >= vector.length) vector.length = key + 1;
 				if(vector.data.length < vector.length) {
@@ -31628,7 +31254,7 @@ openfl_geom_Matrix3D.prototype = {
 					vector.data = data;
 				}
 			}
-			vector.data[key] = this.rawData.data[c];
+			vector.data[key] = this.rawData.data[i];
 		}
 		if(transpose) this.transpose();
 	}
@@ -31851,7 +31477,6 @@ openfl_geom_Matrix3D.prototype = {
 			this31.data[15] = vector3D.w;
 			break;
 		default:
-			throw new js__$Boot_HaxeError(new openfl_errors_Error("Error, Row " + Std.string(_$UInt_UInt_$Impl_$.toFloat(row)) + " out of bounds [0, ..., 3]"));
 		}
 	}
 	,copyRowTo: function(row,vector3D) {
@@ -31881,7 +31506,6 @@ openfl_geom_Matrix3D.prototype = {
 			vector3D.w = this.rawData.data[15];
 			break;
 		default:
-			throw new js__$Boot_HaxeError(new openfl_errors_Error("Error, Row " + row + " out of bounds [0, ..., 3]"));
 		}
 	}
 	,copyToMatrix3D: function(other) {
@@ -32921,7 +32545,7 @@ openfl_geom_Matrix3D.prototype = {
 		this31.data[15] = m141 * m214 + m142 * m224 + m143 * m234 + m144 * m244;
 	}
 	,prependRotation: function(degrees,axis,pivotPoint) {
-		var m = openfl_geom_Matrix3D.getAxisRotation(axis.x,axis.y,axis.z,degrees);
+		var m = openfl_geom_Matrix3D.__getAxisRotation(axis.x,axis.y,axis.z,degrees);
 		if(pivotPoint != null) {
 			var p = pivotPoint;
 			m.appendTranslation(p.x,p.y,p.z);
@@ -33676,10 +33300,13 @@ openfl_geom_Matrix3D.prototype = {
 	}
 	,transformVectors: function(vin,vout) {
 		var i = 0;
+		var x;
+		var y;
+		var z;
 		while(i + 3 <= vin.length) {
-			var x = vin.data[i];
-			var y = vin.data[i + 1];
-			var z = vin.data[i + 2];
+			x = vin.data[i];
+			y = vin.data[i + 1];
+			z = vin.data[i + 2];
 			{
 				if(!vout.fixed) {
 					if(i >= vout.length) vout.length = i + 1;
@@ -34322,7 +33949,7 @@ openfl_media_SoundChannel.prototype = $extend(openfl_events_EventDispatcher.prot
 });
 var openfl_media_SoundLoaderContext = function(bufferTime,checkPolicyFile) {
 	if(checkPolicyFile == null) checkPolicyFile = false;
-	if(bufferTime == null) bufferTime = 0;
+	if(bufferTime == null) bufferTime = 1000;
 	this.bufferTime = bufferTime;
 	this.checkPolicyFile = checkPolicyFile;
 };
@@ -34393,12 +34020,12 @@ openfl_net_URLLoader.prototype = $extend(openfl_events_EventDispatcher.prototype
 		var xmlHttpRequest = new XMLHttpRequest();
 		this.registerEvents(xmlHttpRequest);
 		var uri = "";
-		if(js_Boot.__instanceof(data,lime_utils_ByteArray)) {
+		if(js_Boot.__instanceof(data,openfl_utils_ByteArrayData)) {
 			var data1 = data;
 			var _g = this.dataFormat;
 			switch(_g[1]) {
 			case 0:
-				uri = data1.data.buffer;
+				uri = js_Boot.__cast(data1 , ArrayBuffer);
 				break;
 			default:
 				uri = data1.readUTFBytes(data1.length);
@@ -34450,7 +34077,7 @@ openfl_net_URLLoader.prototype = $extend(openfl_events_EventDispatcher.prototype
 		var _g = this.dataFormat;
 		switch(_g[1]) {
 		case 0:
-			this.data = lime_utils_ByteArray.__ofBuffer(content);
+			this.data = openfl_utils__$ByteArray_ByteArray_$Impl_$.fromArrayBuffer(content);
 			break;
 		default:
 			this.data = Std.string(content);
@@ -34518,7 +34145,7 @@ openfl_net_URLRequest.prototype = {
 		var res = this.requestHeaders;
 		if(res == null) res = [];
 		if(this.method == "GET" || this.data == null) return res;
-		if(typeof(this.data) == "string" || js_Boot.__instanceof(this.data,lime_utils_ByteArray)) {
+		if(typeof(this.data) == "string" || js_Boot.__instanceof(this.data,openfl_utils_ByteArrayData)) {
 			res = res.slice();
 			res.push(new openfl_net_URLRequestHeader("Content-Type",this.contentType != null?this.contentType:"application/x-www-form-urlencoded"));
 		}
@@ -34537,13 +34164,13 @@ openfl_net_URLRequestHeader.__name__ = ["openfl","net","URLRequestHeader"];
 openfl_net_URLRequestHeader.prototype = {
 	__class__: openfl_net_URLRequestHeader
 };
-var openfl_net_URLVariables = function(inEncoded) {
-	if(inEncoded != null) this.decode(inEncoded);
+var openfl_net_URLVariables = function(source) {
+	if(source != null) this.decode(source);
 };
 $hxClasses["openfl.net.URLVariables"] = openfl_net_URLVariables;
 openfl_net_URLVariables.__name__ = ["openfl","net","URLVariables"];
 openfl_net_URLVariables.prototype = {
-	decode: function(inVars) {
+	decode: function(source) {
 		var fields = Reflect.fields(this);
 		var _g = 0;
 		while(_g < fields.length) {
@@ -34551,7 +34178,7 @@ openfl_net_URLVariables.prototype = {
 			++_g;
 			Reflect.deleteField(this,f);
 		}
-		var fields1 = inVars.split(";").join("&").split("&");
+		var fields1 = source.split(";").join("&").split("&");
 		var _g1 = 0;
 		while(_g1 < fields1.length) {
 			var f1 = fields1[_g1];
@@ -34980,15 +34607,15 @@ openfl_text_TextField.prototype = $extend(openfl_display_InteractiveObject.proto
 		}
 		return this.__textEngine.text.length;
 	}
-	,__hitTest: function(x,y,shapeFlag,stack,interactiveOnly) {
-		if(!this.get_visible() || this.__isMask || interactiveOnly && !this.mouseEnabled) return false;
+	,__hitTest: function(x,y,shapeFlag,stack,interactiveOnly,hitObject) {
+		if(!hitObject.get_visible() || this.__isMask || interactiveOnly && !this.mouseEnabled) return false;
 		if(this.get_mask() != null && !this.get_mask().__hitTestMask(x,y)) return false;
 		this.__getWorldTransform();
 		this.__updateLayout();
 		var px = this.__worldTransform.__transformInverseX(x,y);
 		var py = this.__worldTransform.__transformInverseY(x,y);
 		if(this.__textEngine.bounds.contains(px,py)) {
-			if(stack != null) stack.push(this);
+			if(stack != null) stack.push(hitObject);
 			return true;
 		}
 		return false;
@@ -35674,18 +35301,16 @@ var openfl_ui_GameInput = function() {
 $hxClasses["openfl.ui.GameInput"] = openfl_ui_GameInput;
 openfl_ui_GameInput.__name__ = ["openfl","ui","GameInput"];
 openfl_ui_GameInput.getDeviceAt = function(index) {
-	if(lime_ui_Gamepad.devices.h.hasOwnProperty(index)) {
-		var key = lime_ui_Gamepad.devices.h[index];
-		return openfl_ui_GameInput.__devices.h[key.__id__];
-	}
+	if(index >= 0 && index < openfl_ui_GameInput.__deviceList.length) return openfl_ui_GameInput.__deviceList[index];
 	return null;
 };
 openfl_ui_GameInput.__getDevice = function(gamepad) {
 	if(gamepad == null) return null;
 	if(!(openfl_ui_GameInput.__devices.h.__keys__[gamepad.__id__] != null)) {
-		var device = new openfl_ui_GameInputDevice(gamepad.id == null?"null":"" + gamepad.id,null);
+		var device = new openfl_ui_GameInputDevice(gamepad.get_guid(),gamepad.get_name());
+		openfl_ui_GameInput.__deviceList.push(device);
 		openfl_ui_GameInput.__devices.set(gamepad,device);
-		openfl_ui_GameInput.numDevices = Lambda.count(openfl_ui_GameInput.__devices);
+		openfl_ui_GameInput.numDevices = openfl_ui_GameInput.__deviceList.length;
 	}
 	return openfl_ui_GameInput.__devices.h[gamepad.__id__];
 };
@@ -35874,8 +35499,12 @@ openfl_ui_GameInput.__onGamepadConnect = function(gamepad) {
 openfl_ui_GameInput.__onGamepadDisconnect = function(gamepad) {
 	var device = openfl_ui_GameInput.__devices.h[gamepad.__id__];
 	if(device != null) {
-		openfl_ui_GameInput.__devices.remove(gamepad);
-		openfl_ui_GameInput.numDevices = Lambda.count(openfl_ui_GameInput.__devices);
+		if(openfl_ui_GameInput.__devices.h.__keys__[gamepad.__id__] != null) {
+			var x = openfl_ui_GameInput.__devices.h[gamepad.__id__];
+			HxOverrides.remove(openfl_ui_GameInput.__deviceList,x);
+			openfl_ui_GameInput.__devices.remove(gamepad);
+		}
+		openfl_ui_GameInput.numDevices = openfl_ui_GameInput.__deviceList.length;
 		var _g = 0;
 		var _g1 = openfl_ui_GameInput.__instances;
 		while(_g < _g1.length) {
@@ -36330,6 +35959,342 @@ openfl_ui_Keyboard.__getKeyLocation = function(key) {
 		return 0;
 	}
 };
+var openfl_utils__$ByteArray_ByteArray_$Impl_$ = {};
+$hxClasses["openfl.utils._ByteArray.ByteArray_Impl_"] = openfl_utils__$ByteArray_ByteArray_$Impl_$;
+openfl_utils__$ByteArray_ByteArray_$Impl_$.__name__ = ["openfl","utils","_ByteArray","ByteArray_Impl_"];
+openfl_utils__$ByteArray_ByteArray_$Impl_$.__properties__ = {set_length:"set_length",get_length:"get_length"}
+openfl_utils__$ByteArray_ByteArray_$Impl_$.defaultObjectEncoding = null;
+openfl_utils__$ByteArray_ByteArray_$Impl_$._new = function(length) {
+	if(length == null) length = 0;
+	return new openfl_utils_ByteArrayData(length);
+};
+openfl_utils__$ByteArray_ByteArray_$Impl_$.get = function(this1,index) {
+	return this1.b[index];
+};
+openfl_utils__$ByteArray_ByteArray_$Impl_$.set = function(this1,index,value) {
+	this1.b[index] = value & 255;
+	return value;
+};
+openfl_utils__$ByteArray_ByteArray_$Impl_$.fromArrayBuffer = function(buffer) {
+	return openfl_utils_ByteArrayData.fromBytes(haxe_io_Bytes.ofData(buffer));
+};
+openfl_utils__$ByteArray_ByteArray_$Impl_$.fromBytes = function(bytes) {
+	if(js_Boot.__instanceof(bytes,openfl_utils_ByteArrayData)) return bytes; else return openfl_utils_ByteArrayData.fromBytes(bytes);
+};
+openfl_utils__$ByteArray_ByteArray_$Impl_$.fromBytesData = function(bytesData) {
+	return openfl_utils_ByteArrayData.fromBytes(haxe_io_Bytes.ofData(bytesData));
+};
+openfl_utils__$ByteArray_ByteArray_$Impl_$.toArrayBuffer = function(byteArray) {
+	return byteArray.b.bufferValue;
+};
+openfl_utils__$ByteArray_ByteArray_$Impl_$.toBytes = function(byteArray) {
+	return byteArray;
+};
+openfl_utils__$ByteArray_ByteArray_$Impl_$.toBytesData = function(byteArray) {
+	return byteArray.b.bufferValue;
+};
+openfl_utils__$ByteArray_ByteArray_$Impl_$.toLimeBytes = function(byteArray) {
+	return new lime_utils_Bytes(openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length(byteArray),byteArray.b.bufferValue);
+};
+openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length = function(this1) {
+	return this1.__length;
+};
+openfl_utils__$ByteArray_ByteArray_$Impl_$.set_length = function(this1,value) {
+	if(value > 0) this1.__resize(value);
+	this1.__length = value;
+	return value;
+};
+var openfl_utils_IDataOutput = function() { };
+$hxClasses["openfl.utils.IDataOutput"] = openfl_utils_IDataOutput;
+openfl_utils_IDataOutput.__name__ = ["openfl","utils","IDataOutput"];
+openfl_utils_IDataOutput.prototype = {
+	__class__: openfl_utils_IDataOutput
+	,__properties__: {set_endian:"set_endian",get_endian:"get_endian"}
+};
+var openfl_utils_IDataInput = function() { };
+$hxClasses["openfl.utils.IDataInput"] = openfl_utils_IDataInput;
+openfl_utils_IDataInput.__name__ = ["openfl","utils","IDataInput"];
+openfl_utils_IDataInput.prototype = {
+	__class__: openfl_utils_IDataInput
+	,__properties__: {set_endian:"set_endian",get_endian:"get_endian",get_bytesAvailable:"get_bytesAvailable"}
+};
+var openfl_utils_ByteArrayData = function(length) {
+	if(length == null) length = 0;
+	var bytes = haxe_io_Bytes.alloc(length);
+	haxe_io_Bytes.call(this,bytes.b.buffer);
+	this.__length = length;
+	this.__endian = "bigEndian";
+	this.position = 0;
+};
+$hxClasses["openfl.utils.ByteArrayData"] = openfl_utils_ByteArrayData;
+openfl_utils_ByteArrayData.__name__ = ["openfl","utils","ByteArrayData"];
+openfl_utils_ByteArrayData.__interfaces__ = [openfl_utils_IDataOutput,openfl_utils_IDataInput];
+openfl_utils_ByteArrayData.fromBytes = function(bytes) {
+	var result = new openfl_utils_ByteArrayData();
+	result.__fromBytes(bytes);
+	return result;
+};
+openfl_utils_ByteArrayData.__super__ = haxe_io_Bytes;
+openfl_utils_ByteArrayData.prototype = $extend(haxe_io_Bytes.prototype,{
+	clear: function() {
+		this.__length = 0;
+		this.position = 0;
+	}
+	,compress: function(algorithm) {
+		this.__length = this.length;
+		this.position = this.__length;
+	}
+	,deflate: function() {
+		this.compress(openfl_utils_CompressionAlgorithm.DEFLATE);
+	}
+	,inflate: function() {
+		this.uncompress(openfl_utils_CompressionAlgorithm.DEFLATE);
+	}
+	,readBoolean: function() {
+		if(this.position < this.length) return this.get(this.position++) != 0; else {
+			throw new js__$Boot_HaxeError(new openfl_errors_EOFError());
+			return false;
+		}
+	}
+	,readByte: function() {
+		var value = this.readUnsignedByte();
+		if((value & 128) != 0) return value - 256; else return value;
+	}
+	,readBytes: function(bytes,offset,length) {
+		if(length == null) length = 0;
+		if(offset == null) offset = 0;
+		if(length == 0) length = this.__length - this.position;
+		if(this.position + length > this.__length) throw new js__$Boot_HaxeError(new openfl_errors_EOFError());
+		if(bytes.__length < offset + length) bytes.__resize(offset + length);
+		bytes.blit(offset,this,this.position,length);
+		this.position += length;
+	}
+	,readDouble: function() {
+		if(this.position + 8 > this.__length) throw new js__$Boot_HaxeError(new openfl_errors_EOFError());
+		this.position += 8;
+		return this.getDouble(this.position - 8);
+	}
+	,readFloat: function() {
+		if(this.position + 4 > this.__length) throw new js__$Boot_HaxeError(new openfl_errors_EOFError());
+		this.position += 4;
+		return this.getFloat(this.position - 4);
+	}
+	,readInt: function() {
+		var ch1 = this.readUnsignedByte();
+		var ch2 = this.readUnsignedByte();
+		var ch3 = this.readUnsignedByte();
+		var ch4 = this.readUnsignedByte();
+		if(this.__endian == "littleEndian") return ch4 << 24 | ch3 << 16 | ch2 << 8 | ch1; else return ch1 << 24 | ch2 << 16 | ch3 << 8 | ch4;
+	}
+	,readMultiByte: function(length,charSet) {
+		return this.readUTFBytes(length);
+	}
+	,readShort: function() {
+		var ch1 = this.readUnsignedByte();
+		var ch2 = this.readUnsignedByte();
+		var value;
+		if(this.__endian == "littleEndian") value = ch2 << 8 | ch1; else value = ch1 << 8 | ch2;
+		if((value & 32768) != 0) return value - 65536; else return value;
+	}
+	,readUnsignedByte: function() {
+		if(this.position < this.__length) return this.get(this.position++); else {
+			throw new js__$Boot_HaxeError(new openfl_errors_EOFError());
+			return 0;
+		}
+	}
+	,readUnsignedInt: function() {
+		var ch1 = this.readUnsignedByte();
+		var ch2 = this.readUnsignedByte();
+		var ch3 = this.readUnsignedByte();
+		var ch4 = this.readUnsignedByte();
+		if(this.__endian == "littleEndian") return ch4 << 24 | ch3 << 16 | ch2 << 8 | ch1; else return ch1 << 24 | ch2 << 16 | ch3 << 8 | ch4;
+	}
+	,readUnsignedShort: function() {
+		var ch1 = this.readUnsignedByte();
+		var ch2 = this.readUnsignedByte();
+		if(this.__endian == "littleEndian") return (ch2 << 8) + ch1; else return ch1 << 8 | ch2;
+	}
+	,readUTF: function() {
+		var bytesCount = this.readUnsignedShort();
+		return this.readUTFBytes(bytesCount);
+	}
+	,readUTFBytes: function(length) {
+		if(this.position + length > this.__length) throw new js__$Boot_HaxeError(new openfl_errors_EOFError());
+		this.position += length;
+		return this.getString(this.position - length,length);
+	}
+	,uncompress: function(algorithm) {
+		this.__length = this.length;
+		this.position = 0;
+	}
+	,writeBoolean: function(value) {
+		this.writeByte(value?1:0);
+	}
+	,writeByte: function(value) {
+		this.__resize(this.position + 1);
+		this.set(this.position++,value & 255);
+	}
+	,writeBytes: function(bytes,offset,length) {
+		if(length == null) length = 0;
+		if(offset == null) offset = 0;
+		if(openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length(bytes) == 0) return;
+		if(length == 0) {
+			var a = openfl_utils__$ByteArray_ByteArray_$Impl_$.get_length(bytes);
+			length = a - offset;
+		}
+		this.__resize(this.position + length);
+		this.blit(this.position,bytes,offset,length);
+		this.position = this.position + length;
+	}
+	,writeDouble: function(value) {
+		this.__resize(this.position + 8);
+		this.setDouble(this.position,value);
+		this.position += 8;
+	}
+	,writeFloat: function(value) {
+		this.__resize(this.position + 4);
+		this.setFloat(this.position,value);
+		this.position += 4;
+	}
+	,writeInt: function(value) {
+		this.__resize(this.position + 4);
+		if(this.__endian == "littleEndian") {
+			this.set(this.position++,value);
+			this.set(this.position++,value >> 8);
+			this.set(this.position++,value >> 16);
+			this.set(this.position++,value >> 24);
+		} else {
+			this.set(this.position++,value >> 24);
+			this.set(this.position++,value >> 16);
+			this.set(this.position++,value >> 8);
+			this.set(this.position++,value);
+		}
+	}
+	,writeMultiByte: function(value,charSet) {
+		this.writeUTFBytes(value);
+	}
+	,writeShort: function(value) {
+		this.__resize(this.position + 2);
+		if(this.__endian == "littleEndian") {
+			this.set(this.position++,value);
+			this.set(this.position++,value >> 8);
+		} else {
+			this.set(this.position++,value >> 8);
+			this.set(this.position++,value);
+		}
+	}
+	,writeUnsignedInt: function(value) {
+		this.writeInt(value);
+	}
+	,writeUTF: function(value) {
+		var bytes = haxe_io_Bytes.ofString(value);
+		this.writeShort(bytes.length);
+		this.writeBytes(openfl_utils__$ByteArray_ByteArray_$Impl_$.fromBytes(bytes));
+	}
+	,writeUTFBytes: function(value) {
+		var bytes = haxe_io_Bytes.ofString(value);
+		this.writeBytes(openfl_utils__$ByteArray_ByteArray_$Impl_$.fromBytes(haxe_io_Bytes.ofString(value)));
+	}
+	,__fromBytes: function(bytes) {
+		this.b = bytes.b;
+		this.length = bytes.length;
+		this.data = bytes.data;
+		this.__length = bytes.length;
+	}
+	,__resize: function(size) {
+		if(size > this.length) {
+			var bytes = haxe_io_Bytes.alloc((size + 1) * 3 >> 1);
+			bytes.blit(0,this,0,this.length);
+			this.b = bytes.b;
+			this.length = bytes.length;
+			this.data = bytes.data;
+		}
+		if(this.__length < size) this.__length = size;
+	}
+	,__setData: function(bytes) {
+		this.b = bytes.b;
+		this.length = bytes.length;
+		this.data = bytes.data;
+	}
+	,get_bytesAvailable: function() {
+		return this.length - this.position;
+	}
+	,get_endian: function() {
+		return this.__endian;
+	}
+	,set_endian: function(value) {
+		return this.__endian = value;
+	}
+	,__class__: openfl_utils_ByteArrayData
+	,__properties__: {set_endian:"set_endian",get_endian:"get_endian",get_bytesAvailable:"get_bytesAvailable"}
+});
+var openfl_utils_CompressionAlgorithm = $hxClasses["openfl.utils.CompressionAlgorithm"] = { __ename__ : true, __constructs__ : ["DEFLATE","ZLIB","LZMA","GZIP"] };
+openfl_utils_CompressionAlgorithm.DEFLATE = ["DEFLATE",0];
+openfl_utils_CompressionAlgorithm.DEFLATE.toString = $estr;
+openfl_utils_CompressionAlgorithm.DEFLATE.__enum__ = openfl_utils_CompressionAlgorithm;
+openfl_utils_CompressionAlgorithm.ZLIB = ["ZLIB",1];
+openfl_utils_CompressionAlgorithm.ZLIB.toString = $estr;
+openfl_utils_CompressionAlgorithm.ZLIB.__enum__ = openfl_utils_CompressionAlgorithm;
+openfl_utils_CompressionAlgorithm.LZMA = ["LZMA",2];
+openfl_utils_CompressionAlgorithm.LZMA.toString = $estr;
+openfl_utils_CompressionAlgorithm.LZMA.__enum__ = openfl_utils_CompressionAlgorithm;
+openfl_utils_CompressionAlgorithm.GZIP = ["GZIP",3];
+openfl_utils_CompressionAlgorithm.GZIP.toString = $estr;
+openfl_utils_CompressionAlgorithm.GZIP.__enum__ = openfl_utils_CompressionAlgorithm;
+var openfl_utils__$Object_Object_$Impl_$ = {};
+$hxClasses["openfl.utils._Object.Object_Impl_"] = openfl_utils__$Object_Object_$Impl_$;
+openfl_utils__$Object_Object_$Impl_$.__name__ = ["openfl","utils","_Object","Object_Impl_"];
+openfl_utils__$Object_Object_$Impl_$._new = function() {
+	return { };
+};
+openfl_utils__$Object_Object_$Impl_$.hasOwnProperty = function(this1,name) {
+	return this1 != null && Object.prototype.hasOwnProperty.call(this1,name);
+};
+openfl_utils__$Object_Object_$Impl_$.isPrototypeOf = function(this1,theClass) {
+	var c;
+	if(this1 == null) c = null; else c = js_Boot.getClass(this1);
+	while(c != null) {
+		if(c == theClass) return true;
+		c = Type.getSuperClass(c);
+	}
+	return false;
+};
+openfl_utils__$Object_Object_$Impl_$.iterator = function(this1) {
+	var fields = Reflect.fields(this1);
+	if(fields == null) fields = [];
+	return HxOverrides.iter(fields);
+};
+openfl_utils__$Object_Object_$Impl_$.propertyIsEnumerable = function(this1,name) {
+	return this1 != null && Object.prototype.hasOwnProperty.call(this1,name) && Std["is"](Reflect.field(this1,name),haxe_lang_Iterable);
+};
+openfl_utils__$Object_Object_$Impl_$.toLocaleString = function(this1) {
+	return Std.string(this1);
+};
+openfl_utils__$Object_Object_$Impl_$.toString = function(this1) {
+	return Std.string(this1);
+};
+openfl_utils__$Object_Object_$Impl_$.valueOf = function(this1) {
+	return this1;
+};
+openfl_utils__$Object_Object_$Impl_$.__get = function(this1,key) {
+	return Reflect.field(this1,key);
+};
+openfl_utils__$Object_Object_$Impl_$.__set = function(this1,key,value) {
+	this1[key] = value;
+	return value;
+};
+var haxe_lang_Iterator = function() { };
+$hxClasses["haxe.lang.Iterator"] = haxe_lang_Iterator;
+haxe_lang_Iterator.__name__ = ["haxe","lang","Iterator"];
+haxe_lang_Iterator.prototype = {
+	__class__: haxe_lang_Iterator
+};
+var haxe_lang_Iterable = function() { };
+$hxClasses["haxe.lang.Iterable"] = haxe_lang_Iterable;
+haxe_lang_Iterable.__name__ = ["haxe","lang","Iterable"];
+haxe_lang_Iterable.prototype = {
+	__class__: haxe_lang_Iterable
+};
 var openfl_utils_Timer = function(delay,repeatCount) {
 	if(repeatCount == null) repeatCount = 0;
 	if(isNaN(delay) || delay < 0) throw new js__$Boot_HaxeError(new openfl_errors_Error("The delay specified is negative or not a finite number"));
@@ -36387,7 +36352,6 @@ openfl_utils_Timer.prototype = $extend(openfl_events_EventDispatcher.prototype,{
 	,__class__: openfl_utils_Timer
 	,__properties__: {set_repeatCount:"set_repeatCount",set_delay:"set_delay",get_delay:"get_delay"}
 });
-function $iterator(o) { if( o instanceof Array ) return function() { return HxOverrides.iter(o); }; return typeof(o.iterator) == 'function' ? $bind(o,o.iterator) : o.iterator; }
 var $_, $fid = 0;
 function $bind(o,m) { if( m == null ) return null; if( m.__id__ == null ) m.__id__ = $fid++; var f; if( o.hx__closures__ == null ) o.hx__closures__ = {}; else f = o.hx__closures__[m.__id__]; if( f == null ) { f = function(){ return f.method.apply(f.scope, arguments); }; f.scope = o; f.method = m; o.hx__closures__[m.__id__] = f; } return f; }
 if(Array.prototype.indexOf) HxOverrides.indexOf = function(a,o,i) {
@@ -36849,6 +36813,12 @@ lime_graphics_opengl_GL.BROWSER_DEFAULT_WEBGL = 37444;
 lime_math__$ColorMatrix_ColorMatrix_$Impl_$.__identity = [1.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,0.0,1.0,0.0];
 lime_math_Matrix3.__identity = new lime_math_Matrix3();
 lime_math__$Matrix4_Matrix4_$Impl_$.__identity = [1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0,0.0,0.0,0.0,0.0,1.0];
+lime_net_curl__$CURL_CURL_$Impl_$.GLOBAL_SSL = 1;
+lime_net_curl__$CURL_CURL_$Impl_$.GLOBAL_WIN32 = 2;
+lime_net_curl__$CURL_CURL_$Impl_$.GLOBAL_ALL = 3;
+lime_net_curl__$CURL_CURL_$Impl_$.GLOBAL_NOTHING = 0;
+lime_net_curl__$CURL_CURL_$Impl_$.GLOBAL_DEFAULT = 3;
+lime_net_curl__$CURL_CURL_$Impl_$.GLOBAL_ACK_EINTR = 4;
 lime_system_BackgroundWorker.MESSAGE_COMPLETE = "__COMPLETE__";
 lime_system_BackgroundWorker.MESSAGE_ERROR = "__ERROR__";
 lime_system_CFFI.__moduleNames = null;
@@ -37272,19 +37242,19 @@ lime_ui__$KeyModifier_KeyModifier_$Impl_$.META = 3072;
 lime_ui_Touch.onEnd = new lime_app_Event_$lime_$ui_$Touch_$Void();
 lime_ui_Touch.onMove = new lime_app_Event_$lime_$ui_$Touch_$Void();
 lime_ui_Touch.onStart = new lime_app_Event_$lime_$ui_$Touch_$Void();
-lime_utils_ByteArray.cffi_lime_bytes_from_data_pointer = (function($this) {
+lime_utils_Bytes.cffi_lime_bytes_from_data_pointer = (function($this) {
 	var $r;
 	var inValue = lime_system_CFFI.load("lime","lime_bytes_from_data_pointer",2,false);
 	$r = inValue;
 	return $r;
 }(this));
-lime_utils_ByteArray.cffi_lime_bytes_get_data_pointer = (function($this) {
+lime_utils_Bytes.cffi_lime_bytes_get_data_pointer = (function($this) {
 	var $r;
 	var inValue = lime_system_CFFI.load("lime","lime_bytes_get_data_pointer",1,false);
 	$r = inValue;
 	return $r;
 }(this));
-lime_utils_ByteArray.cffi_lime_bytes_read_file = (function($this) {
+lime_utils_Bytes.cffi_lime_bytes_read_file = (function($this) {
 	var $r;
 	var inValue = lime_system_CFFI.load("lime","lime_bytes_read_file",1,false);
 	$r = inValue;
@@ -37300,8 +37270,8 @@ openfl_Assets.cache = new openfl_AssetCache();
 openfl_Assets.dispatcher = new openfl_events_EventDispatcher();
 openfl_display_LoaderInfo.__rootURL = window.document.URL;
 openfl_system_ApplicationDomain.currentDomain = new openfl_system_ApplicationDomain(null);
-openfl_geom_Matrix.__temp = new openfl_geom_Matrix();
 openfl_geom_Matrix.__identity = new openfl_geom_Matrix();
+openfl_geom_Matrix.__temp = new openfl_geom_Matrix();
 openfl_Lib.current = new openfl_display_MovieClip();
 openfl_Lib.__sentWarnings = new haxe_ds_StringMap();
 openfl__$internal_renderer_GraphicsPaths.SIN45 = 0.70710678118654752440084436210485;
@@ -37338,6 +37308,7 @@ openfl__$internal_text_TextEngine.UTF8_ENDLINE = 10;
 openfl__$internal_text_TextEngine.UTF8_SPACE = 32;
 openfl__$internal_text_TextEngine.UTF8_HYPHEN = 45;
 openfl__$internal_text_TextEngine.__defaultFonts = new haxe_ds_StringMap();
+openfl_display_BitmapData.__isGLES = null;
 openfl_display_BitmapDataChannel.ALPHA = 8;
 openfl_display_BitmapDataChannel.BLUE = 4;
 openfl_display_BitmapDataChannel.GREEN = 2;
@@ -37412,6 +37383,14 @@ openfl_display3D_Context3DClearMask.ALL = 17664;
 openfl_display3D_Context3DClearMask.COLOR = 16384;
 openfl_display3D_Context3DClearMask.DEPTH = 256;
 openfl_display3D_Context3DClearMask.STENCIL = 1024;
+openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$.ALWAYS = 519;
+openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$.EQUAL = 514;
+openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$.GREATER = 516;
+openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$.GREATER_EQUAL = 518;
+openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$.LESS = 513;
+openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$.LESS_EQUAL = 515;
+openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$.NEVER = 512;
+openfl_display3D__$Context3DCompareMode_Context3DCompareMode_$Impl_$.NOT_EQUAL = 517;
 openfl_display3D__$Context3DTriangleFace_Context3DTriangleFace_$Impl_$.BACK = 1028;
 openfl_display3D__$Context3DTriangleFace_Context3DTriangleFace_$Impl_$.FRONT = 1029;
 openfl_display3D__$Context3DTriangleFace_Context3DTriangleFace_$Impl_$.FRONT_AND_BACK = 1032;
@@ -37443,6 +37422,7 @@ openfl_events_Event.TAB_CHILDREN_CHANGE = "tabChildrenChange";
 openfl_events_Event.TAB_ENABLED_CHANGE = "tabEnabledChange";
 openfl_events_Event.TAB_INDEX_CHANGE = "tabIndexChange";
 openfl_events_Event.UNLOAD = "unload";
+openfl_events_ActivityEvent.ACTIVITY = "activity";
 openfl_events_TextEvent.LINK = "link";
 openfl_events_TextEvent.TEXT_INPUT = "textInput";
 openfl_events_ErrorEvent.ERROR = "error";
@@ -37493,6 +37473,7 @@ openfl_media_Sound.__registeredSounds = new haxe_ds_StringMap();
 openfl_system_SecurityDomain.currentDomain = new openfl_system_SecurityDomain();
 openfl_ui_GameInput.isSupported = true;
 openfl_ui_GameInput.numDevices = 0;
+openfl_ui_GameInput.__deviceList = [];
 openfl_ui_GameInput.__devices = new haxe_ds_ObjectMap();
 openfl_ui_GameInput.__instances = [];
 openfl_ui_GameInputDevice.MAX_BUFFER_SIZE = 32000;
