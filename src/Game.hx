@@ -32,7 +32,6 @@ class Game extends Sprite
 	public var screenOver 	 : UI;
 	private var startScreen	 : UI;			//Used for  our initial title screen
 	public var score 		 : HUD;
-	public var touchControls : TouchControls;
 	
 	public function new(gui_container : DisplayObjectContainer, simulator : Simulator ) 
 	{
